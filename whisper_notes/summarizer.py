@@ -36,6 +36,8 @@ class Summarizer:
             raise SummarizerError(f"Could not connect to Ollama at {self.ollama_url}: {e}") from e
         except httpx.TimeoutException as e:
             raise SummarizerError(f"Ollama request timed out after {self.timeout}s") from e
+        except httpx.RequestError as e:
+            raise SummarizerError(f"Ollama request failed: {e}") from e
 
         if response.status_code != 200:
             raise SummarizerError(f"Ollama returned HTTP {response.status_code}: {response.text}")

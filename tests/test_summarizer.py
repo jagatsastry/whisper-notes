@@ -77,4 +77,5 @@ def test_long_transcript_is_truncated(respx_mock):
     respx_mock.post(f"{OLLAMA_URL}/api/generate").mock(side_effect=capture)
     s = make_summarizer()
     s.summarize(long_text)
-    assert len(captured["prompt"]) <= 9000  # prompt = instruction + truncated transcript
+    assert long_text[:8000] in captured["prompt"]
+    assert long_text not in captured["prompt"]
