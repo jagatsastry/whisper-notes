@@ -3,23 +3,24 @@ Integration tests: wire together real components with minimal mocking.
 Whisper and sounddevice are still mocked (no real GPU/mic needed in CI).
 File system and note_writer are real.
 """
-import pytest
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, MagicMock
-import httpx
+from unittest.mock import MagicMock, patch
 
-from whisper_notes.config import Config
-from whisper_notes.transcriber import Transcriber
-from whisper_notes.summarizer import Summarizer
+import httpx
+import pytest
+
 from whisper_notes.note_writer import NoteWriter
+from whisper_notes.summarizer import Summarizer
+from whisper_notes.transcriber import Transcriber
 
 
 @pytest.fixture
 def mock_transcriber():
     with patch("whisper_notes.transcriber.whisper") as mock_whisper:
         mock_model = MagicMock()
-        mock_model.transcribe.return_value = {"text": " This is a test note about the team meeting."}
+        mock_model.transcribe.return_value = {
+            "text": " This is a test note about the team meeting."
+        }
         mock_whisper.load_model.return_value = mock_model
         yield Transcriber(model_name="base")
 
@@ -57,9 +58,11 @@ def test_full_pipeline_with_ollama(mock_transcriber, tmp_notes_dir, respx_mock, 
 
 def test_full_pipeline_ollama_offline(mock_transcriber, tmp_notes_dir, fixtures_dir):
     """When Ollama is unreachable, raw transcript is still saved."""
-    from whisper_notes.summarizer import SummarizerError
-    import httpx
     from unittest.mock import patch
+
+    import httpx
+
+    from whisper_notes.summarizer import SummarizerError
 
     writer = NoteWriter(notes_dir=tmp_notes_dir)
     recorded_at = datetime(2026, 3, 4, 10, 0, 0)

@@ -1,15 +1,15 @@
-import threading
 import tempfile
+import threading
 from datetime import datetime
 from pathlib import Path
 
 import rumps
 
 from whisper_notes.config import Config
+from whisper_notes.note_writer import NoteWriteError, NoteWriter
 from whisper_notes.recorder import Recorder, RecordingError
-from whisper_notes.transcriber import Transcriber, TranscriptionError
 from whisper_notes.summarizer import Summarizer, SummarizerError
-from whisper_notes.note_writer import NoteWriter, NoteWriteError
+from whisper_notes.transcriber import Transcriber, TranscriptionError
 
 ICONS = {
     "idle": "🎙",
@@ -85,7 +85,9 @@ class WhisperNotesApp(rumps.App):
             try:
                 summary = self.summarizer.summarize(transcript)
             except SummarizerError:
-                rumps.notification("Whisper Notes", "Ollama unavailable", "Saving raw transcript only.")
+                rumps.notification(
+                    "Whisper Notes", "Ollama unavailable", "Saving raw transcript only."
+                )
 
             self._set_state("processing", "Saving...")
             path = self.writer.write(

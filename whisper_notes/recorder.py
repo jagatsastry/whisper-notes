@@ -1,7 +1,8 @@
 import time
+from pathlib import Path
+
 import numpy as np
 import sounddevice as sd
-from pathlib import Path
 from scipy.io import wavfile
 
 MAX_DURATION_SECONDS = 600  # 10 minutes max recording

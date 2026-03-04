@@ -1,5 +1,6 @@
-import httpx
 from typing import Final
+
+import httpx
 
 MAX_TRANSCRIPT_CHARS: Final = 8000
 

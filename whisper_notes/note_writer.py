@@ -46,7 +46,14 @@ class NoteWriter:
         m, s = divmod(total, 60)
         return f"{m}m {s}s" if m else f"{s}s"
 
-    def _render(self, transcript: str, summary: str | None, duration: float, model: str, recorded_at: datetime) -> str:
+    def _render(
+        self,
+        transcript: str,
+        summary: str | None,
+        duration: float,
+        model: str,
+        recorded_at: datetime,
+    ) -> str:
         title = recorded_at.strftime("%Y-%m-%d %H:%M")
         lines = [f"# Note — {title}", ""]
         if summary is not None:

@@ -1,7 +1,9 @@
-import pytest
-import numpy as np
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import numpy as np
+import pytest
+
 from whisper_notes.recorder import Recorder, RecordingError
 
 

@@ -1,6 +1,7 @@
-import pytest
+
 import httpx
-from unittest.mock import MagicMock, patch
+import pytest
+
 from whisper_notes.summarizer import Summarizer, SummarizerError
 
 OLLAMA_URL = "http://localhost:11434"
@@ -13,7 +14,9 @@ def make_summarizer():
 
 def test_returns_summary_on_success(respx_mock):
     respx_mock.post(f"{OLLAMA_URL}/api/generate").mock(
-        return_value=httpx.Response(200, json={"response": "- Point one\n- Point two", "done": True})
+        return_value=httpx.Response(
+            200, json={"response": "- Point one\n- Point two", "done": True}
+        )
     )
     s = make_summarizer()
     result = s.summarize("Some transcript text")

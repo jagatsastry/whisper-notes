@@ -1,5 +1,6 @@
 import threading
 from pathlib import Path
+
 import whisper
 
 

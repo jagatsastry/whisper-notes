@@ -19,7 +19,10 @@ class Config:
 
     def __post_init__(self):
         if self.whisper_model not in VALID_WHISPER_MODELS:
-            raise ConfigError(f"WHISPER_MODEL '{self.whisper_model}' invalid. Choose from: {VALID_WHISPER_MODELS}")
+            raise ConfigError(
+                f"WHISPER_MODEL '{self.whisper_model}' invalid. "
+                f"Choose from: {VALID_WHISPER_MODELS}"
+            )
         if not self.ollama_url.startswith(("http://", "https://")):
             raise ConfigError(f"OLLAMA_URL '{self.ollama_url}' must start with http:// or https://")
         try:

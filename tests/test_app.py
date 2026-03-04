@@ -3,8 +3,10 @@ Menu bar app tests. rumps is mocked — it can't run headless.
 We test state machine transitions and that the right methods get called.
 """
 import sys
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, call
+
 from whisper_notes.config import Config
 from whisper_notes.recorder import RecordingError as _RealRecordingError
 
@@ -83,7 +85,7 @@ def test_stop_recording_triggers_pipeline(mock_rumps, tmp_notes_dir):
     with patch("whisper_notes.app.Recorder"), \
          patch("whisper_notes.app.Transcriber"), \
          patch("whisper_notes.app.Summarizer"), \
-         patch("whisker_notes.app.NoteWriter") if False else patch("whisper_notes.app.NoteWriter"), \
+         patch("whisper_notes.app.NoteWriter"), \
          patch("threading.Thread") as MockThread:
         app = app_module.WhisperNotesApp(cfg)
         app.state = "recording"

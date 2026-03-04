@@ -1,7 +1,8 @@
-import pytest
-from pathlib import Path
 from datetime import datetime
-from whisper_notes.note_writer import NoteWriter, NoteWriteError
+
+import pytest
+
+from whisper_notes.note_writer import NoteWriteError, NoteWriter
 
 
 def test_writes_both_sections(tmp_notes_dir):
@@ -64,9 +65,10 @@ def test_filename_uses_timestamp(tmp_notes_dir):
 def test_filename_collision_appends_suffix(tmp_notes_dir):
     writer = NoteWriter(notes_dir=tmp_notes_dir)
     dt = datetime(2026, 3, 4, 14, 32, 0)
-    path1 = writer.write(transcript="first", summary=None, duration_seconds=1, model="base", recorded_at=dt)
-    path2 = writer.write(transcript="second", summary=None, duration_seconds=1, model="base", recorded_at=dt)
-    path3 = writer.write(transcript="third", summary=None, duration_seconds=1, model="base", recorded_at=dt)
+    kw = dict(summary=None, duration_seconds=1, model="base", recorded_at=dt)
+    path1 = writer.write(transcript="first", **kw)
+    path2 = writer.write(transcript="second", **kw)
+    path3 = writer.write(transcript="third", **kw)
     assert path1.name == "2026-03-04-14-32.md"
     assert path2.name == "2026-03-04-14-32-2.md"
     assert path3.name == "2026-03-04-14-32-3.md"
@@ -77,7 +79,13 @@ def test_notes_dir_is_file_raises_error(tmp_path):
     bad_path.write_text("I am a file")
     writer = NoteWriter(notes_dir=bad_path)
     with pytest.raises(NoteWriteError, match="not a directory"):
-        writer.write(transcript="x", summary=None, duration_seconds=1, model="base", recorded_at=datetime.now())
+        writer.write(
+            transcript="x",
+            summary=None,
+            duration_seconds=1,
+            model="base",
+            recorded_at=datetime.now(),
+        )
 
 
 def test_duration_formatted_correctly(tmp_notes_dir):

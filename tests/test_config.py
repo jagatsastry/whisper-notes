@@ -1,5 +1,6 @@
+
 import pytest
-import os
+
 from whisper_notes.config import Config, ConfigError
 
 
