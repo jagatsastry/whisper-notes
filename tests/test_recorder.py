@@ -20,7 +20,6 @@ def mock_wavfile():
 def test_records_and_saves_wav(mock_sounddevice, mock_wavfile, tmp_path):
     fake_audio = np.zeros((16000, 1), dtype=np.float32)
     mock_sounddevice.rec.return_value = fake_audio
-    mock_sounddevice.wait.return_value = None
 
     output = tmp_path / "test.wav"
     r = Recorder(sample_rate=16000)
