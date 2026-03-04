@@ -6,6 +6,7 @@ import sys
 import pytest
 from unittest.mock import patch, MagicMock, call
 from whisper_notes.config import Config
+from whisper_notes.recorder import RecordingError as _RealRecordingError
 
 
 @pytest.fixture
@@ -57,6 +58,22 @@ def test_start_recording_changes_state(mock_rumps, tmp_notes_dir):
         app._on_start_recording(None)
         assert app.state == "recording"
         MockRecorder.return_value.start.assert_called_once()
+
+
+def test_start_recording_error_preserves_idle_state(mock_rumps, tmp_notes_dir):
+    """RecordingError during start must show notification and NOT change state."""
+    app_module, rumps_mock = mock_rumps
+    cfg = Config()
+    cfg.notes_dir = tmp_notes_dir
+    with patch("whisper_notes.app.Recorder") as MockRecorder, \
+         patch("whisper_notes.app.Transcriber"), \
+         patch("whisper_notes.app.Summarizer"), \
+         patch("whisper_notes.app.NoteWriter"), \
+         patch("whisper_notes.app.RecordingError", _RealRecordingError):
+        MockRecorder.return_value.start.side_effect = _RealRecordingError("no mic")
+        app = app_module.WhisperNotesApp(cfg)
+        app._on_start_recording(None)
+        assert app.state == "idle"
 
 
 def test_stop_recording_triggers_pipeline(mock_rumps, tmp_notes_dir):

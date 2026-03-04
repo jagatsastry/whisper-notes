@@ -99,6 +99,8 @@ class WhisperNotesApp(rumps.App):
 
         except (TranscriptionError, NoteWriteError, RecordingError) as e:
             self._notify("Error", str(e))
+        except Exception as e:
+            self._notify("Error", f"Unexpected error: {e}")
         finally:
             tmp_path.unlink(missing_ok=True)
             self._reset_to_idle()
