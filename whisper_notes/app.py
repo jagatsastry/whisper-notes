@@ -183,12 +183,14 @@ class WhisperNotesApp(rumps.App):
 
     def _finish_live(self):
         try:
+            if self.live_recorder.is_recording:
+                remaining = self.live_recorder.stop()
+                if len(remaining) > 0 and self._live_thread is not None:
+                    self._live_thread.feed(remaining)
+
             if self._live_thread is not None:
                 self._live_thread.stop()
                 self._live_thread.join(timeout=10)
-
-            if self.live_recorder.is_recording:
-                self.live_recorder.stop()
 
             if self._live_window is not None:
                 window_text = self._live_window.get_text()
