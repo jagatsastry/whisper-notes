@@ -42,3 +42,9 @@ def test_invalid_ollama_url(monkeypatch):
 def test_tilde_expansion():
     cfg = Config()
     assert "~" not in str(cfg.notes_dir)
+
+
+def test_invalid_ollama_timeout(monkeypatch):
+    monkeypatch.setenv("OLLAMA_TIMEOUT", "not-a-number")
+    with pytest.raises(ConfigError, match="OLLAMA_TIMEOUT"):
+        Config()
