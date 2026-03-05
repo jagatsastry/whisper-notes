@@ -34,6 +34,7 @@ class WhisperNotesApp(rumps.App):
         self.state = "idle"
         self.recorder = Recorder()
         self.transcriber = Transcriber(model_name=config.whisper_model)
+        threading.Thread(target=self.transcriber._load_model, daemon=True).start()
         self.summarizer = Summarizer(
             ollama_url=config.ollama_url,
             model=config.ollama_model,
@@ -100,7 +101,9 @@ class WhisperNotesApp(rumps.App):
             recorded_at = datetime.now()
             duration = self.recorder.stop(output_path=tmp_path)
 
-            self._set_state("processing", "Transcribing...")
+            self._set_state(
+                "processing", "Transcribing... (loading model on first run, please wait)"
+            )
             transcript = self.transcriber.transcribe(tmp_path)
 
             summary = None
@@ -140,6 +143,7 @@ class WhisperNotesApp(rumps.App):
             return
         self._live_chunks = []
         self._live_window = LiveWindow(on_close=lambda: self._on_stop_live(None))
+        self._live_window.update()  # force initial render
         self._live_thread = LiveTranscriberThread(
             transcriber=self.live_transcriber,
             chunk_seconds=self.config.live_chunk_seconds,

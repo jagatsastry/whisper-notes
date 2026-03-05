@@ -128,6 +128,7 @@ def test_stop_recording_triggers_pipeline(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.LiveWindow"), \
          patch("threading.Thread") as MockThread:
         app = app_module.WhisperNotesApp(cfg)
+        MockThread.reset_mock()  # clear pre-warm call from __init__
         app.state = "recording"
         app._on_stop_recording(None)
         MockThread.assert_called_once()

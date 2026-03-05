@@ -20,6 +20,9 @@ class LiveWindow:
             self.root, wrap=tk.WORD, state=tk.DISABLED
         )
         self._text.pack(fill=tk.BOTH, expand=True)
+        self.root.update()
+        self.root.lift()
+        self.root.focus_force()
 
     def append(self, text: str) -> None:
         if self._destroyed:
