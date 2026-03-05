@@ -127,6 +127,7 @@ class WhisperNotesApp(rumps.App):
                 recorded_at=recorded_at,
             )
             self._notify("Note saved", path.name)
+            subprocess.Popen(["open", str(path)])
 
         except (TranscriptionError, NoteWriteError, RecordingError) as e:
             self._notify("Error", str(e))
@@ -237,6 +238,7 @@ class WhisperNotesApp(rumps.App):
                 recorded_at=datetime.now(),
             )
             self._notify("Live note saved", path.name)
+            subprocess.Popen(["open", str(path)])
 
         except Exception as e:
             self._notify("Error", f"Live transcription error: {e}")
