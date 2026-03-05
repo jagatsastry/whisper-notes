@@ -101,10 +101,13 @@ class WhisperNotesApp(rumps.App):
             recorded_at = datetime.now()
             duration = self.recorder.stop(output_path=tmp_path)
 
-            self._set_state(
-                "processing", "Transcribing... (loading model on first run, please wait)"
-            )
+            model_cache = Path.home() / ".cache" / "whisper" / f"{self.config.whisper_model}.pt"
+            if not model_cache.exists():
+                self._set_state("processing", "Downloading model (first run)...")
+            else:
+                self._set_state("processing", "Transcribing...")
             transcript = self.transcriber.transcribe(tmp_path)
+            self._set_state("processing", "Transcribing...")
 
             summary = None
             self._set_state("processing", "Summarizing...")
@@ -151,7 +154,12 @@ class WhisperNotesApp(rumps.App):
             on_text=self._on_live_text,
         )
         self._live_thread.start()
-        self._set_state("live", "Live...")
+        fw_cache = Path.home() / ".cache" / "huggingface" / "hub"
+        fw_model = f"models--Systran--faster-whisper-{self.config.faster_whisper_model}"
+        if not (fw_cache / fw_model).exists():
+            self._set_state("live", "Downloading live model (first run)...")
+        else:
+            self._set_state("live", "Live...")
         self._live_btn.set_callback(None)
         self._start_btn.set_callback(None)
         self._stop_live_btn.set_callback(self._on_stop_live)
