@@ -42,17 +42,35 @@ def mock_sd():
 
 @pytest.fixture
 def mock_tk():
-    """Mock tkinter entirely -- it can't run headless."""
-    tk_mock = MagicMock()
-    scrolledtext_mock = MagicMock()
-    with patch.dict(
-        "sys.modules", {"tkinter": tk_mock, "tkinter.scrolledtext": scrolledtext_mock}
-    ):
+    """Mock AppKit/Foundation for LiveWindow — can't create real windows in CI."""
+    appkit_mock = MagicMock()
+    foundation_mock = MagicMock()
+    objc_mock = MagicMock()
+    objc_mock.NSObject = type("NSObject", (), {})
+
+    mock_panel = MagicMock()
+    mock_text_view = MagicMock()
+    mock_text_view.string.return_value = ""
+
+    panel_init = appkit_mock.NSPanel.alloc.return_value
+    panel_init.initWithContentRect_styleMask_backing_defer_.return_value = mock_panel
+    appkit_mock.NSScrollView.alloc.return_value.initWithFrame_.return_value = MagicMock()
+    appkit_mock.NSTextView.alloc.return_value.initWithFrame_.return_value = mock_text_view
+
+    mocks = {
+        "objc": objc_mock,
+        "AppKit": appkit_mock,
+        "Foundation": foundation_mock,
+    }
+
+    with patch.dict("sys.modules", mocks):
         if "whisper_notes.live_window" in sys.modules:
             del sys.modules["whisper_notes.live_window"]
         import whisper_notes.live_window as lw
 
-        yield lw, tk_mock
+        with patch.object(lw, "_run_on_main", side_effect=lambda fn, wait=False: fn()):
+            with patch.object(lw, "_make_delegate", return_value=MagicMock()):
+                yield lw, mock_panel, mock_text_view
 
 
 def make_chunk(seconds=3, sample_rate=SAMPLE_RATE):
@@ -549,22 +567,23 @@ class TestLiveRecorder:
 
 
 class TestLiveWindow:
-    def test_constructor_calls_tk(self, mock_tk):
-        """AC-5.1"""
-        lw, tk_mock = mock_tk
-        lw.LiveWindow(on_close=MagicMock())
-        tk_mock.Tk.assert_called_once()
+    def test_constructor_creates_panel(self, mock_tk):
+        """AC-5.1: Constructor creates an NSPanel."""
+        lw, mock_panel, _ = mock_tk
+        win = lw.LiveWindow(on_close=MagicMock())
+        assert win._panel is mock_panel
+        mock_panel.makeKeyAndOrderFront_.assert_called_once()
 
-    def test_append_calls_root_after(self, mock_tk):
-        """AC-5.2"""
-        lw, tk_mock = mock_tk
+    def test_append_updates_text_view(self, mock_tk):
+        """AC-5.2: append() updates the text view content."""
+        lw, _, mock_text_view = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
         win.append("hello")
-        win.root.after.assert_called()
+        mock_text_view.setString_.assert_called()
 
     def test_on_close_calls_callback_each_time(self, mock_tk):
         """AC-5.3: _on_close fires callback each time (no internal guard)."""
-        lw, tk_mock = mock_tk
+        lw, _, _ = mock_tk
         on_close = MagicMock()
         win = lw.LiveWindow(on_close=on_close)
         win._on_close()
@@ -574,68 +593,60 @@ class TestLiveWindow:
 
     def test_destroy_twice_no_error(self, mock_tk):
         """AC-5.4"""
-        lw, tk_mock = mock_tk
+        lw, _, _ = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
         win.destroy()
         win.destroy()  # no error
 
     def test_append_after_destroy_noop(self, mock_tk):
         """AC-5.5"""
-        lw, tk_mock = mock_tk
+        lw, _, mock_text_view = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
         win.destroy()
-        # Reset mock to verify no new calls
-        win.root.after.reset_mock()
+        mock_text_view.reset_mock()
         win.append("should not appear")
-        win.root.after.assert_not_called()
+        mock_text_view.setString_.assert_not_called()
 
     def test_get_text_after_destroy_returns_empty(self, mock_tk):
         """AC-5.6"""
-        lw, tk_mock = mock_tk
+        lw, _, _ = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
         win.destroy()
         assert win.get_text() == ""
 
     def test_on_close_does_not_call_destroy(self, mock_tk):
         """Spec: _on_close does NOT call destroy -- app.py is responsible."""
-        lw, tk_mock = mock_tk
+        lw, _, _ = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
         win._on_close()
         assert win._destroyed is False
 
-    def test_update_after_destroy_is_noop(self, mock_tk):
-        """update() after destroy should not call root.update()."""
-        lw, tk_mock = mock_tk
+    def test_update_is_noop(self, mock_tk):
+        """update() is a no-op with AppKit (it handles its own event loop)."""
+        lw, _, _ = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
-        win.destroy()
-        win.root.update.reset_mock()
-        win.update()
-        win.root.update.assert_not_called()
+        win.update()  # should not raise
 
-    def test_window_title_contains_live_transcript(self, mock_tk):
+    def test_panel_title_contains_live_transcript(self, mock_tk):
         """Spec: title must contain 'Live Transcript'."""
-        lw, tk_mock = mock_tk
-        win = lw.LiveWindow(on_close=MagicMock())
-        win.root.title.assert_called()
-        title_arg = win.root.title.call_args[0][0]
+        lw, mock_panel, _ = mock_tk
+        lw.LiveWindow(on_close=MagicMock())
+        mock_panel.setTitle_.assert_called()
+        title_arg = mock_panel.setTitle_.call_args[0][0]
         assert "Live Transcript" in title_arg
 
-    def test_window_geometry_500x250(self, mock_tk):
-        """Spec: geometry '500x250'."""
-        lw, tk_mock = mock_tk
-        win = lw.LiveWindow(on_close=MagicMock())
-        win.root.geometry.assert_called_with("500x250")
+    def test_panel_is_floating(self, mock_tk):
+        """Spec: window should be floating (always on top)."""
+        lw, mock_panel, _ = mock_tk
+        lw.LiveWindow(on_close=MagicMock())
+        mock_panel.setLevel_.assert_called()
 
-    def test_window_always_on_top(self, mock_tk):
-        """Spec: wm_attributes('-topmost', True)."""
-        lw, tk_mock = mock_tk
+    def test_destroy_swallows_panel_close_exception(self, mock_tk):
+        """destroy() should swallow exceptions from panel.close()."""
+        lw, mock_panel, _ = mock_tk
         win = lw.LiveWindow(on_close=MagicMock())
-        win.root.wm_attributes.assert_called_with("-topmost", True)
-
-    def test_destroy_swallows_root_destroy_exception(self, mock_tk):
-        """destroy() should swallow exceptions from root.destroy()."""
-        lw, tk_mock = mock_tk
-        win = lw.LiveWindow(on_close=MagicMock())
-        win.root.destroy.side_effect = RuntimeError("already destroyed")
+        # Simulate close() raising — destroy wraps in _run_on_main which calls fn directly
+        # The fn calls panel.close() which we make raise
+        mock_panel.close.side_effect = RuntimeError("already closed")
         win.destroy()  # should not raise
         assert win._destroyed is True
