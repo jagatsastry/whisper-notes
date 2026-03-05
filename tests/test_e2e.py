@@ -809,7 +809,8 @@ class TestAppStateMachineLive:
              patch("whisper_notes.app.LiveRecorder"), \
              patch("whisper_notes.app.LiveTranscriber"), \
              patch("whisper_notes.app.LiveTranscriberThread"), \
-             patch("whisper_notes.app.LiveWindow"):
+             patch("whisper_notes.app.subprocess"):
+            MockWriter.return_value.notes_dir = cfg.notes_dir
             app = app_module.WhisperNotesApp(cfg)
 
             # idle
@@ -821,7 +822,7 @@ class TestAppStateMachineLive:
 
             # live -> processing -> idle (via _on_stop_live + _finish_live)
             app._live_pump_timer = MagicMock()
-            app._live_window.get_text.return_value = "some text"
+            app._live_chunks = ["some text"]
             MockWriter.return_value.write.return_value = Path("/tmp/test.md")
             with patch("threading.Thread"):
                 app._on_stop_live(None)
@@ -843,11 +844,12 @@ class TestAppStateMachineLive:
         with patch("whisper_notes.app.Recorder"), \
              patch("whisper_notes.app.Transcriber"), \
              patch("whisper_notes.app.Summarizer"), \
-             patch("whisper_notes.app.NoteWriter"), \
+             patch("whisper_notes.app.NoteWriter") as MockWriter, \
              patch("whisper_notes.app.LiveRecorder"), \
              patch("whisper_notes.app.LiveTranscriber"), \
              patch("whisper_notes.app.LiveTranscriberThread"), \
-             patch("whisper_notes.app.LiveWindow"):
+             patch("whisper_notes.app.subprocess"):
+            MockWriter.return_value.notes_dir = cfg.notes_dir
             app = app_module.WhisperNotesApp(cfg)
             app.state = "idle"
             app._on_stop_live(None)

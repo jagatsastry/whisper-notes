@@ -17,9 +17,10 @@ class NoteWriter:
         duration_seconds: float,
         model: str,
         recorded_at: datetime,
+        output_path: Path | None = None,
     ) -> Path:
         self._ensure_dir()
-        path = self._unique_path(recorded_at)
+        path = output_path if output_path is not None else self._unique_path(recorded_at)
         content = self._render(transcript, summary, duration_seconds, model, recorded_at)
         path.write_text(content, encoding="utf-8")
         return path

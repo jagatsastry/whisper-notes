@@ -52,13 +52,14 @@ def _make_app(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.LiveRecorder") as MockLiveRecorder, \
          patch("whisper_notes.app.LiveTranscriber") as MockLiveTranscriber, \
          patch("whisper_notes.app.LiveTranscriberThread") as MockThread, \
-         patch("whisper_notes.app.LiveWindow") as MockWindow:
+         patch("whisper_notes.app.subprocess") as MockSubprocess:
+        MockWriter.return_value.notes_dir = tmp_notes_dir
         app = app_module.WhisperNotesApp(cfg)
         # Store references for test assertions
         app._mock_live_recorder_cls = MockLiveRecorder
         app._mock_live_transcriber_cls = MockLiveTranscriber
         app._mock_thread_cls = MockThread
-        app._mock_window_cls = MockWindow
+        app._mock_subprocess = MockSubprocess
         app._mock_writer_cls = MockWriter
         app._rumps_mock = rumps_mock
         app._app_module = app_module
@@ -87,10 +88,10 @@ class TestIdleToLive:
         app._on_live_transcribe(None)
         app.live_recorder.start.assert_called_once()
 
-    def test_live_transcribe_creates_live_window(self, app):
-        """LiveWindow is created with on_close callback."""
+    def test_live_transcribe_creates_live_path(self, app):
+        """A .md file path is created and opened in editor."""
         app._on_live_transcribe(None)
-        assert app._live_window is not None
+        assert app._live_path is not None
 
     def test_live_transcribe_starts_thread(self, app):
         """LiveTranscriberThread is started."""
@@ -130,9 +131,7 @@ class TestLiveToIdle:
         """AC-6.7, AC-6.14: After _finish_live, state is idle, chunks cleared, thread None."""
         app._on_live_transcribe(None)
         app.state = "processing"  # simulate _on_stop_live setting this
-        # Mock window.get_text() to return something
-        app._live_window.get_text.return_value = "some text"
-        # Mock writer
+        app._live_chunks = ["some text"]
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         assert app.state == "idle"
@@ -234,7 +233,7 @@ class TestEmptyTranscript:
         """AC-6.10: Empty transcript -> Ollama NOT called, saved as '(no speech detected)'."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = ""
+        app._live_chunks = []
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         # Summarizer should NOT have been called
@@ -247,7 +246,7 @@ class TestEmptyTranscript:
         """Whitespace-only transcript is treated as empty."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "   \n  "
+        app._live_chunks = ["   ", "  "]
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         app.summarizer.summarize.assert_not_called()
@@ -267,19 +266,13 @@ class TestOllamaOffline:
         Note: Since the app module is loaded with mocked submodules,
         SummarizerError is a MagicMock (not a real exception class).
         The except clause `except SummarizerError` won't catch real exceptions.
-        To test this properly, we need to verify the broader Exception handler
-        catches it AND that when summarizer works, summary is included.
         We test the contract indirectly by checking that when summarizer
-        raises any Exception, the note is still saved.
+        raises any Exception, cleanup still happens.
         """
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "some real speech"
+        app._live_chunks = ["some real speech"]
         app.writer.write.return_value = Path("/tmp/test.md")
-        # The except SummarizerError clause in the mocked app won't catch a
-        # real exception (SummarizerError is a MagicMock). But the generic
-        # except Exception in _finish_live will catch it, trigger notification,
-        # and clean up. Verify that cleanup happens.
         app.summarizer.summarize.side_effect = RuntimeError("connection refused")
         app._finish_live()
         # Cleanup should still happen (via finally block)
@@ -303,13 +296,6 @@ class TestPumpLiveAudio:
         app.live_recorder.drain.assert_called()
         app._live_thread.feed.assert_called_once_with(audio)
 
-    def test_pump_calls_window_update(self, app):
-        """AC-6.13: _pump_live_audio calls window.update()."""
-        app._on_live_transcribe(None)
-        app.live_recorder.drain.return_value = np.array([], dtype=np.float32)
-        app._pump_live_audio(None)
-        app._live_window.update.assert_called()
-
     def test_pump_noop_if_not_live(self, app):
         """_pump_live_audio is no-op if state is not 'live'."""
         app._on_live_transcribe(None)
@@ -326,12 +312,6 @@ class TestPumpLiveAudio:
         app._pump_live_audio(None)
         app._live_thread.feed.assert_not_called()
 
-    def test_pump_swallows_window_update_exception(self, app):
-        """window.update() exception is swallowed."""
-        app._on_live_transcribe(None)
-        app.live_recorder.drain.return_value = np.array([], dtype=np.float32)
-        app._live_window.update.side_effect = RuntimeError("tkinter error")
-        app._pump_live_audio(None)  # should not raise
 
 
 # ============================================================
@@ -344,7 +324,7 @@ class TestFinishLiveContract:
         """AC-6.8: duration_seconds=0 for live mode."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "text"
+        app._live_chunks = ["text"]
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         write_call = app.writer.write.call_args
@@ -354,7 +334,7 @@ class TestFinishLiveContract:
         """AC-6.9: model='live/{faster_whisper_model}'."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "text"
+        app._live_chunks = ["text"]
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         write_call = app.writer.write.call_args
@@ -365,7 +345,6 @@ class TestFinishLiveContract:
         app._on_live_transcribe(None)
         app._live_chunks = ["some", "chunks"]
         app.state = "processing"
-        app._live_window.get_text.return_value = "text"
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         assert app._live_chunks == []
@@ -377,8 +356,8 @@ class TestFinishLiveContract:
         app._on_live_transcribe(None)
         app._live_chunks = ["data"]
         app.state = "processing"
-        # Make get_text raise to trigger exception path
-        app._live_window.get_text.side_effect = RuntimeError("widget error")
+        # Make writer.write raise to trigger exception path
+        app.writer.write.side_effect = RuntimeError("write error")
         app._finish_live()
         # Cleanup should still happen
         assert app._live_chunks == []
@@ -389,7 +368,7 @@ class TestFinishLiveContract:
         """_finish_live calls thread.stop() then thread.join(timeout=10)."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "text"
+        app._live_chunks = ["text"]
         app.writer.write.return_value = Path("/tmp/test.md")
         thread = app._live_thread
         app._finish_live()
@@ -400,38 +379,36 @@ class TestFinishLiveContract:
         """_finish_live stops the recorder if it's still recording."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "text"
+        app._live_chunks = ["text"]
         app.writer.write.return_value = Path("/tmp/test.md")
         app.live_recorder.is_recording = True
         app._finish_live()
         app.live_recorder.stop.assert_called()
 
-    def test_finish_live_destroys_window(self, app):
-        """_finish_live destroys the window and sets it to None."""
+    def test_finish_live_clears_live_path(self, app):
+        """_finish_live sets _live_path to None after saving."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        window = app._live_window
-        app._live_window.get_text.return_value = "text"
+        app._live_chunks = ["text"]
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
-        window.destroy.assert_called()
-        assert app._live_window is None
+        assert app._live_path is None
 
-    def test_finish_live_uses_window_text_if_available(self, app):
-        """_finish_live gets transcript from window.get_text() if window exists."""
+    def test_finish_live_passes_output_path(self, app):
+        """_finish_live passes output_path=_live_path to writer.write()."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window.get_text.return_value = "window text"
+        app._live_chunks = ["text"]
+        live_path = app._live_path
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
         write_call = app.writer.write.call_args
-        assert write_call[1]["transcript"] == "window text"
+        assert write_call[1]["output_path"] == live_path
 
-    def test_finish_live_falls_back_to_chunks_if_no_window(self, app):
-        """If window is None, uses _live_chunks joined."""
+    def test_finish_live_uses_chunks_for_transcript(self, app):
+        """_finish_live joins _live_chunks for transcript."""
         app._on_live_transcribe(None)
         app.state = "processing"
-        app._live_window = None
         app._live_chunks = ["hello", "world"]
         app.writer.write.return_value = Path("/tmp/test.md")
         app._finish_live()
@@ -453,15 +430,19 @@ class TestOnLiveText:
         app._on_live_text("world")
         assert app._live_chunks == ["hello", "world"]
 
-    def test_appends_to_window(self, app):
-        """_on_live_text calls window.append()."""
-        app._live_window = MagicMock()
+    def test_writes_transcript_to_file(self, app, tmp_notes_dir):
+        """_on_live_text writes growing transcript to _live_path."""
+        from datetime import datetime
+        app._live_recorded_at = datetime(2026, 3, 5, 10, 0, 0)
+        app._live_path = tmp_notes_dir / "test-live.md"
+        app._live_chunks = []
         app._on_live_text("hello")
-        app._live_window.append.assert_called_once_with("hello")
+        content = app._live_path.read_text()
+        assert "hello" in content
 
-    def test_no_crash_if_window_is_none(self, app):
-        """_on_live_text should not crash if _live_window is None."""
-        app._live_window = None
+    def test_no_crash_if_live_path_is_none(self, app):
+        """_on_live_text should not crash if _live_path is None."""
+        app._live_path = None
         app._live_chunks = []
         app._on_live_text("hello")  # should not raise
         assert app._live_chunks == ["hello"]

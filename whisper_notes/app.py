@@ -1,3 +1,4 @@
+import subprocess
 import tempfile
 import threading
 from datetime import datetime
@@ -47,6 +48,8 @@ class WhisperNotesApp(rumps.App):
         self._live_thread: LiveTranscriberThread | None = None
         self._live_window: LiveWindow | None = None
         self._live_chunks: list[str] = []
+        self._live_path: Path | None = None
+        self._live_recorded_at: datetime | None = None
 
         self._start_btn = rumps.MenuItem("Start Recording", callback=self._on_start_recording)
         self._stop_btn = rumps.MenuItem("Stop Recording", callback=self._on_stop_recording)
@@ -145,9 +148,18 @@ class WhisperNotesApp(rumps.App):
         except LiveRecErr as e:
             self._notify("Live Transcribe Error", str(e))
             return
+
+        # Create note file immediately and open it — editor shows live updates
+        self._live_recorded_at = datetime.now()
+        self._live_path = self.writer.notes_dir / self._live_recorded_at.strftime("%Y-%m-%d-%H-%M.md")
+        self.writer.notes_dir.mkdir(parents=True, exist_ok=True)
+        self._live_path.write_text(
+            f"# Note — {self._live_recorded_at.strftime('%Y-%m-%d %H:%M')}\n\n"
+            f"## Transcript\n\n*Recording in progress...*\n"
+        )
+        subprocess.Popen(["open", str(self._live_path)])
+
         self._live_chunks = []
-        self._live_window = LiveWindow(on_close=lambda: self._on_stop_live(None))
-        self._live_window.update()  # force initial render
         self._live_thread = LiveTranscriberThread(
             transcriber=self.live_transcriber,
             chunk_seconds=self.config.live_chunk_seconds,
@@ -173,16 +185,16 @@ class WhisperNotesApp(rumps.App):
         audio = self.live_recorder.drain()
         if len(audio) > 0:
             self._live_thread.feed(audio)
-        if self._live_window is not None:
-            try:
-                self._live_window.update()
-            except Exception:
-                pass
 
     def _on_live_text(self, text: str):
         self._live_chunks.append(text)
-        if self._live_window is not None:
-            self._live_window.append(text)
+        # Append chunk directly to file — editor auto-refreshes
+        if self._live_path is not None:
+            transcript_so_far = " ".join(self._live_chunks)
+            self._live_path.write_text(
+                f"# Note — {self._live_recorded_at.strftime('%Y-%m-%d %H:%M')}\n\n"
+                f"## Transcript\n\n{transcript_so_far}\n"
+            )
 
     def _on_stop_live(self, _):
         if self.state != "live":
@@ -205,16 +217,7 @@ class WhisperNotesApp(rumps.App):
                 self._live_thread.stop()
                 self._live_thread.join(timeout=10)
 
-            if self._live_window is not None:
-                window_text = self._live_window.get_text()
-            else:
-                window_text = " ".join(self._live_chunks)
-
-            if self._live_window is not None:
-                self._live_window.destroy()
-                self._live_window = None
-
-            transcript = window_text.strip()
+            transcript = " ".join(self._live_chunks).strip()
             summary = None
 
             if transcript:
@@ -229,22 +232,24 @@ class WhisperNotesApp(rumps.App):
             if not transcript:
                 transcript = "(no speech detected)"
 
+            # Write final note with summary to the already-open file
             self._set_state("processing", "Saving...")
             path = self.writer.write(
                 transcript=transcript,
                 summary=summary,
                 duration_seconds=0,
                 model=f"live/{self.config.faster_whisper_model}",
-                recorded_at=datetime.now(),
+                recorded_at=self._live_recorded_at,
+                output_path=self._live_path,
             )
             self._notify("Live note saved", path.name)
-            subprocess.Popen(["open", str(path)])
 
         except Exception as e:
             self._notify("Error", f"Live transcription error: {e}")
         finally:
             self._live_chunks = []
             self._live_thread = None
+            self._live_path = None
             self._reset_to_idle()
 
     # --- Common ---
