@@ -22,6 +22,8 @@ def mock_rumps():
 
     sub_mocks = {
         "rumps": rumps_mock,
+        "objc": MagicMock(),
+        "AppKit": MagicMock(),
         "whisper_notes.recorder": MagicMock(),
         "whisper_notes.transcriber": MagicMock(),
         "whisper_notes.summarizer": MagicMock(),
@@ -52,7 +54,8 @@ def _make_app(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.LiveRecorder") as MockLiveRecorder, \
          patch("whisper_notes.app.LiveTranscriber") as MockLiveTranscriber, \
          patch("whisper_notes.app.LiveTranscriberThread") as MockThread, \
-         patch("whisper_notes.app.subprocess") as MockSubprocess:
+         patch("whisper_notes.app.subprocess") as MockSubprocess, \
+         patch("whisper_notes.app.MenuBarButton"):
         MockWriter.return_value.notes_dir = tmp_notes_dir
         app = app_module.WhisperNotesApp(cfg)
         # Store references for test assertions

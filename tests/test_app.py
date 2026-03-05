@@ -22,6 +22,8 @@ def mock_rumps():
     # in a single process.
     sub_mocks = {
         "rumps": rumps_mock,
+        "objc": MagicMock(),
+        "AppKit": MagicMock(),
         "whisper_notes.recorder": MagicMock(),
         "whisper_notes.transcriber": MagicMock(),
         "whisper_notes.summarizer": MagicMock(),
@@ -43,7 +45,6 @@ LIVE_PATCHES = [
     "whisper_notes.app.LiveRecorder",
     "whisper_notes.app.LiveTranscriber",
     "whisper_notes.app.LiveTranscriberThread",
-    "whisper_notes.app.LiveWindow",
 ]
 
 
@@ -70,8 +71,7 @@ def test_app_initializes_in_idle_state(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.NoteWriter"), \
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
+         patch("whisper_notes.app.LiveTranscriberThread"):
         app = app_module.WhisperNotesApp(cfg)
         assert app.state == "idle"
 
@@ -87,7 +87,7 @@ def test_start_recording_changes_state(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
          patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
+         patch("whisper_notes.app.MenuBarButton"):
         app = app_module.WhisperNotesApp(cfg)
         app._on_start_recording(None)
         assert app.state == "recording"
@@ -106,8 +106,7 @@ def test_start_recording_error_preserves_idle_state(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.RecordingError", _RealRecordingError), \
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
+         patch("whisper_notes.app.LiveTranscriberThread"):
         MockRecorder.return_value.start.side_effect = _RealRecordingError("no mic")
         app = app_module.WhisperNotesApp(cfg)
         app._on_start_recording(None)
@@ -125,7 +124,6 @@ def test_stop_recording_triggers_pipeline(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
          patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"), \
          patch("threading.Thread") as MockThread:
         app = app_module.WhisperNotesApp(cfg)
         MockThread.reset_mock()  # clear pre-warm call from __init__
@@ -142,11 +140,13 @@ def test_live_transcribe_changes_state(mock_rumps, tmp_notes_dir):
     with patch("whisper_notes.app.Recorder"), \
          patch("whisper_notes.app.Transcriber"), \
          patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
+         patch("whisper_notes.app.NoteWriter") as MockWriter, \
          patch("whisper_notes.app.LiveRecorder") as MockLiveRecorder, \
          patch("whisper_notes.app.LiveTranscriber"), \
          patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
+         patch("whisper_notes.app.subprocess"), \
+         patch("whisper_notes.app.MenuBarButton"):
+        MockWriter.return_value.notes_dir = tmp_notes_dir
         app = app_module.WhisperNotesApp(cfg)
         app._on_live_transcribe(None)
         assert app.state == "live"
@@ -164,7 +164,6 @@ def test_stop_live_triggers_finish(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
          patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"), \
          patch("threading.Thread") as MockThread:
         app = app_module.WhisperNotesApp(cfg)
         app.state = "live"
@@ -184,8 +183,7 @@ def test_stop_live_noop_if_not_live(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.NoteWriter"), \
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
+         patch("whisper_notes.app.LiveTranscriberThread"):
         app = app_module.WhisperNotesApp(cfg)
         app.state = "idle"
         app._on_stop_live(None)
@@ -202,8 +200,7 @@ def test_idle_state_has_live_btn_enabled(mock_rumps, tmp_notes_dir):
          patch("whisper_notes.app.NoteWriter"), \
          patch("whisper_notes.app.LiveRecorder"), \
          patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
+         patch("whisper_notes.app.LiveTranscriberThread"):
         app = app_module.WhisperNotesApp(cfg)
         # _live_btn should have callback set in idle state
         assert hasattr(app, "_live_btn")

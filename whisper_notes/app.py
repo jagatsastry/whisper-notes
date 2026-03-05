@@ -4,7 +4,9 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+import objc
 import rumps
+from AppKit import NSStatusBar, NSVariableStatusItemLength
 
 from whisper_notes.config import Config
 from whisper_notes.live_recorder import LiveRecorder
@@ -13,7 +15,6 @@ from whisper_notes.live_transcriber import (
     LiveTranscriber,
     LiveTranscriberThread,
 )
-from whisper_notes.live_window import LiveWindow
 from whisper_notes.note_writer import NoteWriteError, NoteWriter
 from whisper_notes.recorder import Recorder, RecordingError
 from whisper_notes.summarizer import Summarizer, SummarizerError
@@ -26,6 +27,31 @@ ICONS = {
     "error": "⚠",
     "live": "🔴",
 }
+
+
+class MenuBarButton:
+    """A temporary extra menu bar item (like QuickTime's stop button)."""
+
+    def __init__(self, title: str, callback):
+        self._item = NSStatusBar.systemStatusBar().statusItemWithLength_(
+            NSVariableStatusItemLength
+        )
+        self._item.button().setTitle_(title)
+        self._target = self._make_target(callback)
+        self._item.button().setTarget_(self._target)
+        self._item.button().setAction_(b"clicked:")
+
+    @staticmethod
+    def _make_target(callback):
+        class Target(objc.lookUpClass("NSObject")):
+            def clicked_(self, sender):
+                callback()
+        return Target.alloc().init()
+
+    def remove(self):
+        if self._item is not None:
+            NSStatusBar.systemStatusBar().removeStatusItem_(self._item)
+            self._item = None
 
 
 class WhisperNotesApp(rumps.App):
@@ -46,8 +72,8 @@ class WhisperNotesApp(rumps.App):
         self.live_recorder = LiveRecorder()
         self.live_transcriber = LiveTranscriber(model_name=config.faster_whisper_model)
         self._live_thread: LiveTranscriberThread | None = None
-        self._live_window: LiveWindow | None = None
         self._live_chunks: list[str] = []
+        self._stop_bar_btn: MenuBarButton | None = None
         self._live_path: Path | None = None
         self._live_recorded_at: datetime | None = None
 
@@ -84,6 +110,7 @@ class WhisperNotesApp(rumps.App):
             self._notify("Recording Error", str(e))
             return
         self._set_state("recording", "Recording...")
+        self._stop_bar_btn = MenuBarButton("⏹ Stop", lambda: self._on_stop_recording(None))
         self._start_btn.set_callback(None)
         self._live_btn.set_callback(None)
         self._stop_btn.set_callback(self._on_stop_recording)
@@ -151,7 +178,8 @@ class WhisperNotesApp(rumps.App):
 
         # Create note file immediately and open it — editor shows live updates
         self._live_recorded_at = datetime.now()
-        self._live_path = self.writer.notes_dir / self._live_recorded_at.strftime("%Y-%m-%d-%H-%M.md")
+        fname = self._live_recorded_at.strftime("%Y-%m-%d-%H-%M.md")
+        self._live_path = self.writer.notes_dir / fname
         self.writer.notes_dir.mkdir(parents=True, exist_ok=True)
         self._live_path.write_text(
             f"# Note — {self._live_recorded_at.strftime('%Y-%m-%d %H:%M')}\n\n"
@@ -173,6 +201,9 @@ class WhisperNotesApp(rumps.App):
             self._set_state("live", "Downloading live model (first run)...")
         else:
             self._set_state("live", "Live...")
+        self._stop_bar_btn = MenuBarButton(
+            "⏹ Stop Live", lambda: self._on_stop_live(None)
+        )
         self._live_btn.set_callback(None)
         self._start_btn.set_callback(None)
         self._stop_live_btn.set_callback(self._on_stop_live)
@@ -255,6 +286,9 @@ class WhisperNotesApp(rumps.App):
     # --- Common ---
 
     def _reset_to_idle(self):
+        if self._stop_bar_btn is not None:
+            self._stop_bar_btn.remove()
+            self._stop_bar_btn = None
         self._set_state("idle", "Whisper Notes")
         self._start_btn.set_callback(self._on_start_recording)
         self._stop_btn.set_callback(None)

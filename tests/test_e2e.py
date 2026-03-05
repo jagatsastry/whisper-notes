@@ -50,6 +50,8 @@ def mock_rumps():
 
     sub_mocks = {
         "rumps": rumps_mock,
+        "objc": MagicMock(),
+        "AppKit": MagicMock(),
         "whisper_notes.recorder": MagicMock(),
         "whisper_notes.transcriber": MagicMock(),
         "whisper_notes.summarizer": MagicMock(),
@@ -809,7 +811,8 @@ class TestAppStateMachineLive:
              patch("whisper_notes.app.LiveRecorder"), \
              patch("whisper_notes.app.LiveTranscriber"), \
              patch("whisper_notes.app.LiveTranscriberThread"), \
-             patch("whisper_notes.app.subprocess"):
+             patch("whisper_notes.app.subprocess"), \
+             patch("whisper_notes.app.MenuBarButton"):
             MockWriter.return_value.notes_dir = cfg.notes_dir
             app = app_module.WhisperNotesApp(cfg)
 
@@ -848,7 +851,8 @@ class TestAppStateMachineLive:
              patch("whisper_notes.app.LiveRecorder"), \
              patch("whisper_notes.app.LiveTranscriber"), \
              patch("whisper_notes.app.LiveTranscriberThread"), \
-             patch("whisper_notes.app.subprocess"):
+             patch("whisper_notes.app.subprocess"), \
+             patch("whisper_notes.app.MenuBarButton"):
             MockWriter.return_value.notes_dir = cfg.notes_dir
             app = app_module.WhisperNotesApp(cfg)
             app.state = "idle"
