@@ -38,7 +38,7 @@ dependencies = [
 
 ---
 
-## 2. Configuration Additions (`whisper_notes/config.py`)
+## 2. Configuration Additions (`quill/config.py`)
 
 ### 2.1 New Fields on `Config` Dataclass
 
@@ -108,7 +108,7 @@ If empty string (the default when env var is unset), set `self.dictation_model =
 
 ## 3. Module Layout
 
-New file: `whisper_notes/dictator.py`
+New file: `quill/dictator.py`
 
 This module contains four classes:
 - `HotkeyListener` -- listens for a configurable hotkey press/release
@@ -117,7 +117,7 @@ This module contains four classes:
 - `Dictator` -- composes the above three with a transcriber
 
 ```
-whisper_notes/
+quill/
     __init__.py          (no change)
     app.py               (modified)
     config.py            (modified)
@@ -133,7 +133,7 @@ whisper_notes/
 
 ---
 
-## 4. `HotkeyListener` Class (`whisper_notes/dictator.py`)
+## 4. `HotkeyListener` Class (`quill/dictator.py`)
 
 ### 4.1 Imports
 
@@ -229,7 +229,7 @@ def _resolve_key(hotkey: str) -> Key | KeyCode:
 
 ---
 
-## 5. `AudioCapture` Class (`whisper_notes/dictator.py`)
+## 5. `AudioCapture` Class (`quill/dictator.py`)
 
 ### 5.1 Class Definition
 
@@ -297,7 +297,7 @@ class AudioCapture:
 
 ---
 
-## 6. `TextInjector` Class (`whisper_notes/dictator.py`)
+## 6. `TextInjector` Class (`quill/dictator.py`)
 
 ### 6.1 Class Definition
 
@@ -371,7 +371,7 @@ class TextInjector:
 
 ---
 
-## 7. `DictationError` Exception (`whisper_notes/dictator.py`)
+## 7. `DictationError` Exception (`quill/dictator.py`)
 
 ```python
 class DictationError(RuntimeError):
@@ -382,7 +382,7 @@ Defined at module level in `dictator.py`. Used by `HotkeyListener`, `AudioCaptur
 
 ---
 
-## 8. `Dictator` Class (`whisper_notes/dictator.py`)
+## 8. `Dictator` Class (`quill/dictator.py`)
 
 ### 8.1 Class Definition
 
@@ -532,7 +532,7 @@ The `Dictator` has four states:
 ### 9.1 New Imports
 
 ```python
-from whisper_notes.dictator import Dictator, DictationError
+from quill.dictator import Dictator, DictationError
 ```
 
 ### 9.2 ICONS Update
@@ -549,7 +549,7 @@ The app gains a new state `"dictation"` that represents "dictation mode is armed
 
 | State | Icon | Title Text |
 |---|---|---|
-| `idle` | `"idle"` | `"Whisper Notes"` |
+| `idle` | `"idle"` | `"Quill"` |
 | `recording` | `"recording"` | `"Recording..."` |
 | `live` | `"live"` | `"Live..."` |
 | `dictation` | `"dictation"` | `"Dictation (hold <key> to speak)"` |
@@ -667,7 +667,7 @@ def _reset_to_idle(self):
     if self._stop_bar_btn is not None:
         self._stop_bar_btn.remove()
         self._stop_bar_btn = None
-    self._set_state("idle", "Whisper Notes")
+    self._set_state("idle", "Quill")
     self._start_btn.set_callback(self._on_start_recording)
     self._stop_btn.set_callback(None)
     self._live_btn.set_callback(self._on_live_transcribe)

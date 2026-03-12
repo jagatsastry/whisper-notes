@@ -1,4 +1,4 @@
-"""Tests for whisper_notes/dictator.py -- basic coverage for builder."""
+"""Tests for quill/dictator.py -- basic coverage for builder."""
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -8,7 +8,7 @@ import pytest
 
 
 def test_dictation_error_is_runtime_error():
-    from whisper_notes.dictator import DictationError
+    from quill.dictator import DictationError
 
     assert issubclass(DictationError, RuntimeError)
 
@@ -20,53 +20,53 @@ class TestResolveKey:
     def test_resolve_alt_r(self):
         from pynput.keyboard import Key
 
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         assert HotkeyListener._resolve_key("alt_r") == Key.alt_r
 
     def test_resolve_ctrl_l(self):
         from pynput.keyboard import Key
 
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         assert HotkeyListener._resolve_key("ctrl_l") == Key.ctrl_l
 
     def test_resolve_single_char(self):
         from pynput.keyboard import KeyCode
 
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         assert HotkeyListener._resolve_key("d") == KeyCode.from_char("d")
 
     def test_resolve_unknown_key(self):
-        from whisper_notes.dictator import DictationError, HotkeyListener
+        from quill.dictator import DictationError, HotkeyListener
 
         with pytest.raises(DictationError, match="Unknown hotkey"):
             HotkeyListener._resolve_key("nonexistent_key")
 
 
 class TestHotkeyListenerStartStop:
-    @patch("whisper_notes.dictator.Listener")
+    @patch("quill.dictator.Listener")
     def test_start_creates_listener(self, MockListener):
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         hl = HotkeyListener(hotkey="alt_r", on_press=lambda: None, on_release=lambda: None)
         hl.start()
         MockListener.assert_called_once()
         MockListener.return_value.start.assert_called_once()
 
-    @patch("whisper_notes.dictator.Listener")
+    @patch("quill.dictator.Listener")
     def test_start_twice_raises(self, MockListener):
-        from whisper_notes.dictator import DictationError, HotkeyListener
+        from quill.dictator import DictationError, HotkeyListener
 
         hl = HotkeyListener(hotkey="alt_r", on_press=lambda: None, on_release=lambda: None)
         hl.start()
         with pytest.raises(DictationError, match="HotkeyListener already started"):
             hl.start()
 
-    @patch("whisper_notes.dictator.Listener")
+    @patch("quill.dictator.Listener")
     def test_stop_clears_listener(self, MockListener):
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         hl = HotkeyListener(hotkey="alt_r", on_press=lambda: None, on_release=lambda: None)
         hl.start()
@@ -75,7 +75,7 @@ class TestHotkeyListenerStartStop:
         assert hl._pressed is False
 
     def test_stop_when_not_started_is_noop(self):
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         hl = HotkeyListener(hotkey="alt_r", on_press=lambda: None, on_release=lambda: None)
         hl.stop()  # should not raise
@@ -85,7 +85,7 @@ class TestHotkeyListenerCallbacks:
     def test_press_fires_callback_once(self):
         from pynput.keyboard import Key
 
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         cb = MagicMock()
         hl = HotkeyListener(hotkey="alt_r", on_press=cb, on_release=lambda: None)
@@ -98,7 +98,7 @@ class TestHotkeyListenerCallbacks:
     def test_release_fires_callback(self):
         from pynput.keyboard import Key
 
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         cb = MagicMock()
         hl = HotkeyListener(hotkey="alt_r", on_press=lambda: None, on_release=cb)
@@ -109,7 +109,7 @@ class TestHotkeyListenerCallbacks:
     def test_different_key_ignored(self):
         from pynput.keyboard import Key
 
-        from whisper_notes.dictator import HotkeyListener
+        from quill.dictator import HotkeyListener
 
         press_cb = MagicMock()
         release_cb = MagicMock()
@@ -124,9 +124,9 @@ class TestHotkeyListenerCallbacks:
 
 
 class TestAudioCapture:
-    @patch("whisper_notes.dictator.sd")
+    @patch("quill.dictator.sd")
     def test_start_creates_stream(self, mock_sd):
-        from whisper_notes.dictator import AudioCapture
+        from quill.dictator import AudioCapture
 
         ac = AudioCapture()
         ac.start()
@@ -134,18 +134,18 @@ class TestAudioCapture:
         mock_sd.InputStream.return_value.start.assert_called_once()
         assert ac.is_recording
 
-    @patch("whisper_notes.dictator.sd")
+    @patch("quill.dictator.sd")
     def test_start_twice_raises(self, mock_sd):
-        from whisper_notes.dictator import AudioCapture, DictationError
+        from quill.dictator import AudioCapture, DictationError
 
         ac = AudioCapture()
         ac.start()
         with pytest.raises(DictationError, match="AudioCapture already recording"):
             ac.start()
 
-    @patch("whisper_notes.dictator.sd")
+    @patch("quill.dictator.sd")
     def test_stop_returns_audio(self, mock_sd):
-        from whisper_notes.dictator import AudioCapture
+        from quill.dictator import AudioCapture
 
         ac = AudioCapture()
         ac.start()
@@ -156,9 +156,9 @@ class TestAudioCapture:
         assert not ac.is_recording
         np.testing.assert_array_equal(result, np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32))
 
-    @patch("whisper_notes.dictator.sd")
+    @patch("quill.dictator.sd")
     def test_stop_empty_returns_empty_array(self, mock_sd):
-        from whisper_notes.dictator import AudioCapture
+        from quill.dictator import AudioCapture
 
         ac = AudioCapture()
         ac.start()
@@ -167,15 +167,15 @@ class TestAudioCapture:
         assert result.dtype == np.float32
 
     def test_stop_when_not_recording_raises(self):
-        from whisper_notes.dictator import AudioCapture, DictationError
+        from quill.dictator import AudioCapture, DictationError
 
         ac = AudioCapture()
         with pytest.raises(DictationError, match="AudioCapture not recording"):
             ac.stop()
 
-    @patch("whisper_notes.dictator.sd")
+    @patch("quill.dictator.sd")
     def test_start_mic_error(self, mock_sd):
-        from whisper_notes.dictator import AudioCapture, DictationError
+        from quill.dictator import AudioCapture, DictationError
 
         mock_sd.InputStream.side_effect = Exception("no mic")
         ac = AudioCapture()
@@ -183,9 +183,9 @@ class TestAudioCapture:
             ac.start()
         assert not ac.is_recording
 
-    @patch("whisper_notes.dictator.sd")
+    @patch("quill.dictator.sd")
     def test_start_drains_stale_queue(self, mock_sd):
-        from whisper_notes.dictator import AudioCapture
+        from quill.dictator import AudioCapture
 
         ac = AudioCapture()
         ac._queue.put(np.array([1.0], dtype=np.float32))
@@ -197,31 +197,31 @@ class TestAudioCapture:
 
 
 class TestTextInjector:
-    @patch("whisper_notes.dictator.subprocess")
-    @patch("whisper_notes.dictator.Controller")
+    @patch("quill.dictator.subprocess")
+    @patch("quill.dictator.Controller")
     def test_inject_empty_is_noop(self, MockController, mock_subprocess):
-        from whisper_notes.dictator import TextInjector
+        from quill.dictator import TextInjector
 
         ti = TextInjector()
         ti.inject("")
         mock_subprocess.run.assert_not_called()
         MockController.assert_not_called()
 
-    @patch("whisper_notes.dictator.subprocess")
-    @patch("whisper_notes.dictator.Controller")
+    @patch("quill.dictator.subprocess")
+    @patch("quill.dictator.Controller")
     def test_inject_whitespace_is_noop(self, MockController, mock_subprocess):
-        from whisper_notes.dictator import TextInjector
+        from quill.dictator import TextInjector
 
         ti = TextInjector()
         ti.inject("   ")
         mock_subprocess.run.assert_not_called()
         MockController.assert_not_called()
 
-    @patch("whisper_notes.dictator.time")
-    @patch("whisper_notes.dictator.subprocess")
-    @patch("whisper_notes.dictator.Controller")
+    @patch("quill.dictator.time")
+    @patch("quill.dictator.subprocess")
+    @patch("quill.dictator.Controller")
     def test_inject_calls_pbcopy_and_paste(self, MockController, mock_subprocess, mock_time):
-        from whisper_notes.dictator import TextInjector
+        from quill.dictator import TextInjector
 
         mock_subprocess.run.return_value = MagicMock(stdout="old clipboard")
         ti = TextInjector(restore_clipboard=True)
@@ -229,11 +229,11 @@ class TestTextInjector:
         # Should call pbpaste, pbcopy (text), then keyboard paste, then pbcopy (restore)
         assert mock_subprocess.run.call_count >= 2
 
-    @patch("whisper_notes.dictator.time")
-    @patch("whisper_notes.dictator.subprocess")
-    @patch("whisper_notes.dictator.Controller")
+    @patch("quill.dictator.time")
+    @patch("quill.dictator.subprocess")
+    @patch("quill.dictator.Controller")
     def test_inject_no_restore(self, MockController, mock_subprocess, mock_time):
-        from whisper_notes.dictator import TextInjector
+        from quill.dictator import TextInjector
 
         ti = TextInjector(restore_clipboard=False)
         ti.inject("hello")
@@ -243,13 +243,13 @@ class TestTextInjector:
         ]
         assert len(pbpaste_calls) == 0
 
-    @patch("whisper_notes.dictator.time")
-    @patch("whisper_notes.dictator.subprocess")
-    @patch("whisper_notes.dictator.Controller")
+    @patch("quill.dictator.time")
+    @patch("quill.dictator.subprocess")
+    @patch("quill.dictator.Controller")
     def test_inject_pbcopy_failure_raises(self, MockController, mock_subprocess, mock_time):
         import subprocess as real_subprocess
 
-        from whisper_notes.dictator import DictationError, TextInjector
+        from quill.dictator import DictationError, TextInjector
 
         mock_subprocess.CalledProcessError = real_subprocess.CalledProcessError
         mock_subprocess.TimeoutExpired = real_subprocess.TimeoutExpired
@@ -266,59 +266,59 @@ class TestTextInjector:
 
 
 class TestDictator:
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_start_sets_idle(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.start()
         assert d.state == "idle"
         MockHL.return_value.start.assert_called_once()
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_start_twice_raises(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import DictationError, Dictator
+        from quill.dictator import DictationError, Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.start()
         with pytest.raises(DictationError, match="Dictation already started"):
             d.start()
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_stop_sets_off(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.start()
         d.stop()
         assert d.state == "off"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_stop_when_off_is_noop(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.stop()  # should not raise
         assert d.state == "off"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_hotkey_press_starts_recording(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.start()
@@ -326,15 +326,15 @@ class TestDictator:
         assert d.state == "recording"
         MockAC.return_value.start.assert_called_once()
 
-    @patch("whisper_notes.dictator.threading")
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.threading")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_hotkey_release_triggers_transcription(
         self, MockHL, MockAC, MockLT, MockTI, mock_threading
     ):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.start()
@@ -343,12 +343,12 @@ class TestDictator:
         d._on_hotkey_release()
         assert d.state == "transcribing"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_transcribe_and_inject_empty_audio(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d._state = "transcribing"
@@ -356,12 +356,12 @@ class TestDictator:
         assert d.state == "idle"
         MockLT.return_value.transcribe_chunk.assert_not_called()
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_transcribe_and_inject_success(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d._state = "transcribing"
@@ -370,12 +370,12 @@ class TestDictator:
         MockTI.return_value.inject.assert_called_once_with("hello world")
         assert d.state == "idle"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_transcribe_empty_text_no_inject(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d._state = "transcribing"
@@ -384,13 +384,13 @@ class TestDictator:
         MockTI.return_value.inject.assert_not_called()
         assert d.state == "idle"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_transcription_error_returns_to_idle(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
-        from whisper_notes.live_transcriber import LiveTranscriptionError
+        from quill.dictator import Dictator
+        from quill.live_transcriber import LiveTranscriptionError
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d._state = "transcribing"
@@ -398,12 +398,12 @@ class TestDictator:
         d._transcribe_and_inject(np.array([1.0], dtype=np.float32))
         assert d.state == "idle"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_inject_error_still_returns_to_idle(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import DictationError, Dictator
+        from quill.dictator import DictationError, Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d._state = "transcribing"
@@ -412,36 +412,36 @@ class TestDictator:
         d._transcribe_and_inject(np.array([1.0], dtype=np.float32))
         assert d.state == "idle"
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_state_change_callback(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         cb = MagicMock()
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30, on_state_change=cb)
         d.start()
         cb.assert_called_with("idle")
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_hotkey_press_while_not_idle_ignored(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d._state = "transcribing"
         d._on_hotkey_press()
         MockAC.return_value.start.assert_not_called()
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_mic_error_on_press(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import DictationError, Dictator
+        from quill.dictator import DictationError, Dictator
 
         cb = MagicMock()
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30, on_state_change=cb)
@@ -452,12 +452,12 @@ class TestDictator:
         assert d.state == "idle"
         cb.assert_called_with("error")
 
-    @patch("whisper_notes.dictator.TextInjector")
-    @patch("whisper_notes.dictator.LiveTranscriber")
-    @patch("whisper_notes.dictator.AudioCapture")
-    @patch("whisper_notes.dictator.HotkeyListener")
+    @patch("quill.dictator.TextInjector")
+    @patch("quill.dictator.LiveTranscriber")
+    @patch("quill.dictator.AudioCapture")
+    @patch("quill.dictator.HotkeyListener")
     def test_stop_while_recording_discards_audio(self, MockHL, MockAC, MockLT, MockTI):
-        from whisper_notes.dictator import Dictator
+        from quill.dictator import Dictator
 
         d = Dictator(hotkey="alt_r", model_name="base", max_seconds=30)
         d.start()

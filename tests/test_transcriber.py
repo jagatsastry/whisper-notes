@@ -3,13 +3,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from whisper_notes.transcriber import Transcriber, TranscriptionError
+from quill.transcriber import Transcriber, TranscriptionError
 
 
 @pytest.fixture
 def mock_whisper_model():
     """Patch whisper.load_model to avoid downloading real models in tests."""
-    with patch("whisper_notes.transcriber.whisper") as mock_whisper:
+    with patch("quill.transcriber.whisper") as mock_whisper:
         mock_model = MagicMock()
         mock_whisper.load_model.return_value = mock_model
         yield mock_whisper, mock_model
@@ -53,7 +53,7 @@ def test_model_loaded_once_on_first_use(mock_whisper_model, fixtures_dir):
     t = Transcriber(model_name="base")
     t.transcribe(fixtures_dir / "silent_1s.wav")
     t.transcribe(fixtures_dir / "silent_1s.wav")
-    mock_whisper.load_model.assert_called_once_with("base")
+    mock_whisper.load_model.assert_called_once_with("base", download_root=None)
 
 
 def test_whisper_exception_raises_transcription_error(mock_whisper_model, fixtures_dir):

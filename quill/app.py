@@ -8,18 +8,18 @@ import objc
 import rumps
 from AppKit import NSStatusBar, NSVariableStatusItemLength
 
-from whisper_notes.config import Config
-from whisper_notes.dictator import DictationError, Dictator
-from whisper_notes.live_recorder import LiveRecorder
-from whisper_notes.live_recorder import LiveRecordingError as LiveRecErr
-from whisper_notes.live_transcriber import (
+from quill.config import Config
+from quill.dictator import DictationError, Dictator
+from quill.live_recorder import LiveRecorder
+from quill.live_recorder import LiveRecordingError as LiveRecErr
+from quill.live_transcriber import (
     LiveTranscriber,
     LiveTranscriberThread,
 )
-from whisper_notes.note_writer import NoteWriteError, NoteWriter
-from whisper_notes.recorder import Recorder, RecordingError
-from whisper_notes.summarizer import Summarizer, SummarizerError
-from whisper_notes.transcriber import Transcriber, TranscriptionError
+from quill.note_writer import NoteWriteError, NoteWriter
+from quill.recorder import Recorder, RecordingError
+from quill.summarizer import Summarizer, SummarizerError
+from quill.transcriber import Transcriber, TranscriptionError
 
 ICONS = {
     "idle": "🎙",
@@ -56,55 +56,71 @@ class MenuBarButton:
             self._item = None
 
 
-class WhisperNotesApp(rumps.App):
+class QuillApp(rumps.App):
     def __init__(self, config: Config):
-        super().__init__(f"{ICONS['idle']} Whisper Notes", quit_button=None)
+        super().__init__(f"{ICONS['idle']} Quill", quit_button=None)
         self.config = config
         self.state = "idle"
-        self.recorder = Recorder()
-        self.transcriber = Transcriber(model_name=config.whisper_model)
-        threading.Thread(target=self.transcriber._load_model, daemon=True).start()
-        self.summarizer = Summarizer(
-            ollama_url=config.ollama_url,
-            model=config.ollama_model,
-            timeout=config.ollama_timeout,
-        )
-        self.writer = NoteWriter(notes_dir=config.notes_dir)
-
-        self.live_recorder = LiveRecorder()
-        self.live_transcriber = LiveTranscriber(model_name=config.faster_whisper_model)
-        self._live_thread: LiveTranscriberThread | None = None
-        self._live_chunks: list[str] = []
         self._stop_bar_btn: MenuBarButton | None = None
-        self._live_path: Path | None = None
-        self._live_recorded_at: datetime | None = None
 
-        self._start_btn = rumps.MenuItem("Start Recording", callback=self._on_start_recording)
-        self._stop_btn = rumps.MenuItem("Stop Recording", callback=self._on_stop_recording)
-        self._stop_btn.set_callback(None)  # disabled initially
+        # --- Transcription components (behind feature flag) ---
+        if config.enable_transcription:
+            self.recorder = Recorder()
+            self.transcriber = Transcriber(
+                model_name=config.whisper_model,
+                download_root=str(config.whisper_download_root) if config.whisper_download_root else None,
+            )
+            threading.Thread(target=self.transcriber._load_model, daemon=True).start()
+            self.writer = NoteWriter(notes_dir=config.notes_dir)
+            self.live_recorder = LiveRecorder()
+            self.live_transcriber = LiveTranscriber(
+                model_name=config.faster_whisper_model,
+                download_root=str(config.faster_whisper_download_root)
+                if config.faster_whisper_download_root
+                else None,
+            )
+            self._live_thread: LiveTranscriberThread | None = None
+            self._live_chunks: list[str] = []
+            self._live_path: Path | None = None
+            self._live_recorded_at: datetime | None = None
 
-        self._live_btn = rumps.MenuItem("Live Transcribe", callback=self._on_live_transcribe)
-        self._stop_live_btn = rumps.MenuItem("Stop Live", callback=self._on_stop_live)
-        self._stop_live_btn.set_callback(None)  # disabled initially
+        # --- Summarization (behind feature flag) ---
+        if config.enable_summarization:
+            self.summarizer = Summarizer(
+                ollama_url=config.ollama_url,
+                model=config.ollama_model,
+                timeout=config.ollama_timeout,
+            )
+
+        # --- Build menu ---
+        menu_items = []
+
+        if config.enable_transcription:
+            self._start_btn = rumps.MenuItem("Start Recording", callback=self._on_start_recording)
+            self._stop_btn = rumps.MenuItem("Stop Recording", callback=self._on_stop_recording)
+            self._stop_btn.set_callback(None)  # disabled initially
+            self._live_btn = rumps.MenuItem("Live Transcribe", callback=self._on_live_transcribe)
+            self._stop_live_btn = rumps.MenuItem("Stop Live", callback=self._on_stop_live)
+            self._stop_live_btn.set_callback(None)  # disabled initially
+            menu_items.extend([
+                self._start_btn, self._stop_btn,
+                self._live_btn, self._stop_live_btn,
+            ])
 
         self._dictation_btn = rumps.MenuItem(
             "Enable Dictation", callback=self._on_enable_dictation
         )
         self._dictator: Dictator | None = None
+        menu_items.append(self._dictation_btn)
 
-        self._open_btn = rumps.MenuItem("Open Notes Folder", callback=self._on_open_notes)
+        menu_items.append(None)  # separator
 
-        self.menu = [
-            self._start_btn,
-            self._stop_btn,
-            self._live_btn,
-            self._stop_live_btn,
-            self._dictation_btn,
-            None,
-            self._open_btn,
-            None,
-            rumps.MenuItem("Quit", callback=self._on_quit),
-        ]
+        if config.enable_transcription:
+            self._open_btn = rumps.MenuItem("Open Notes Folder", callback=self._on_open_notes)
+            menu_items.extend([self._open_btn, None])
+
+        menu_items.append(rumps.MenuItem("Quit", callback=self._on_quit))
+        self.menu = menu_items
 
     def _set_state(self, state: str, status: str | None = None):
         self.state = state
@@ -150,13 +166,14 @@ class WhisperNotesApp(rumps.App):
             self._set_state("processing", "Transcribing...")
 
             summary = None
-            self._set_state("processing", "Summarizing...")
-            try:
-                summary = self.summarizer.summarize(transcript)
-            except SummarizerError:
-                rumps.notification(
-                    "Whisper Notes", "Ollama unavailable", "Saving raw transcript only."
-                )
+            if self.config.enable_summarization:
+                self._set_state("processing", "Summarizing...")
+                try:
+                    summary = self.summarizer.summarize(transcript)
+                except SummarizerError:
+                    rumps.notification(
+                        "Quill", "Ollama unavailable", "Saving raw transcript only."
+                    )
 
             self._set_state("processing", "Saving...")
             path = self.writer.write(
@@ -262,13 +279,13 @@ class WhisperNotesApp(rumps.App):
             transcript = " ".join(self._live_chunks).strip()
             summary = None
 
-            if transcript:
+            if transcript and self.config.enable_summarization:
                 self._set_state("processing", "Summarizing...")
                 try:
                     summary = self.summarizer.summarize(transcript)
                 except SummarizerError:
                     rumps.notification(
-                        "Whisper Notes", "Ollama unavailable", "Saving raw transcript only."
+                        "Quill", "Ollama unavailable", "Saving raw transcript only."
                     )
 
             if not transcript:
@@ -300,11 +317,12 @@ class WhisperNotesApp(rumps.App):
         if self._stop_bar_btn is not None:
             self._stop_bar_btn.remove()
             self._stop_bar_btn = None
-        self._set_state("idle", "Whisper Notes")
-        self._start_btn.set_callback(self._on_start_recording)
-        self._stop_btn.set_callback(None)
-        self._live_btn.set_callback(self._on_live_transcribe)
-        self._stop_live_btn.set_callback(None)
+        self._set_state("idle", "Quill")
+        if self.config.enable_transcription:
+            self._start_btn.set_callback(self._on_start_recording)
+            self._stop_btn.set_callback(None)
+            self._live_btn.set_callback(self._on_live_transcribe)
+            self._stop_live_btn.set_callback(None)
         self._dictation_btn.title = "Enable Dictation"
         self._dictation_btn.set_callback(self._on_enable_dictation)
 
@@ -322,6 +340,9 @@ class WhisperNotesApp(rumps.App):
                 model_name=self.config.dictation_model,
                 max_seconds=self.config.dictation_max_seconds,
                 on_state_change=self._on_dictation_state_change,
+                download_root=str(self.config.faster_whisper_download_root)
+                if self.config.faster_whisper_download_root
+                else None,
             )
             self._dictator.start()
         except DictationError as e:
@@ -336,8 +357,9 @@ class WhisperNotesApp(rumps.App):
         self._set_state(
             "dictation", f"Dictation (hold {self.config.dictation_hotkey} to speak)"
         )
-        self._start_btn.set_callback(None)
-        self._live_btn.set_callback(None)
+        if self.config.enable_transcription:
+            self._start_btn.set_callback(None)
+            self._live_btn.set_callback(None)
 
     def _disable_dictation(self):
         if self._dictator is not None:
@@ -377,12 +399,12 @@ class WhisperNotesApp(rumps.App):
         subprocess.Popen(["open", str(self.config.notes_dir)])
 
     def _notify(self, title: str, message: str):
-        rumps.notification("Whisper Notes", title, message)
+        rumps.notification("Quill", title, message)
 
 
 def main():
     config = Config()
-    WhisperNotesApp(config).run()
+    QuillApp(config).run()
 
 
 if __name__ == "__main__":

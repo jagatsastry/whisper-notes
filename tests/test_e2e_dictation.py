@@ -29,22 +29,22 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from whisper_notes.dictator import (
+from quill.dictator import (
     DictationError,
     Dictator,
     HotkeyListener,
     TextInjector,
 )
-from whisper_notes.live_transcriber import LiveTranscriptionError
+from quill.live_transcriber import LiveTranscriptionError
 
 # Reusable test audio (1 second of ones at 16kHz)
 FAKE_AUDIO = np.ones(16000, dtype=np.float32)
 EMPTY_AUDIO = np.array([], dtype=np.float32)
 
 # Patch targets in dictator module
-_SP = "whisper_notes.dictator.subprocess"
-_CTRL = "whisper_notes.dictator.Controller"
-_TIME = "whisper_notes.dictator.time"
+_SP = "quill.dictator.subprocess"
+_CTRL = "quill.dictator.Controller"
+_TIME = "quill.dictator.time"
 
 
 # ============================================================
@@ -65,47 +65,49 @@ def mock_app():
         "rumps": rumps_mock,
         "objc": MagicMock(),
         "AppKit": MagicMock(),
-        "whisper_notes.recorder": MagicMock(),
-        "whisper_notes.transcriber": MagicMock(),
-        "whisper_notes.summarizer": MagicMock(),
-        "whisper_notes.note_writer": MagicMock(),
-        "whisper_notes.live_transcriber": MagicMock(),
-        "whisper_notes.live_recorder": MagicMock(),
-        "whisper_notes.live_window": MagicMock(),
-        "whisper_notes.dictator": dictator_mock,
+        "quill.recorder": MagicMock(),
+        "quill.transcriber": MagicMock(),
+        "quill.summarizer": MagicMock(),
+        "quill.note_writer": MagicMock(),
+        "quill.live_transcriber": MagicMock(),
+        "quill.live_recorder": MagicMock(),
+        "quill.live_window": MagicMock(),
+        "quill.dictator": dictator_mock,
     }
 
     with patch.dict("sys.modules", sub_mocks):
-        if "whisper_notes.app" in sys.modules:
-            del sys.modules["whisper_notes.app"]
-        import whisper_notes.app as app_module
+        if "quill.app" in sys.modules:
+            del sys.modules["quill.app"]
+        import quill.app as app_module
 
         yield app_module, rumps_mock
 
 
-def _make_app_instance(app_module, tmp_path):
-    """Create a WhisperNotesApp with all deps patched."""
-    from whisper_notes.config import Config
+def _make_app_instance(app_module, tmp_path, enable_transcription=True):
+    """Create a QuillApp with all deps patched."""
+    from quill.config import Config
 
     cfg = Config()
     cfg.notes_dir = tmp_path / "Notes"
     cfg.notes_dir.mkdir(exist_ok=True)
+    cfg.enable_transcription = enable_transcription
+    cfg.enable_summarization = enable_transcription
 
     with (
-        patch("whisper_notes.app.Recorder"),
-        patch("whisper_notes.app.Transcriber"),
-        patch("whisper_notes.app.Summarizer"),
-        patch("whisper_notes.app.NoteWriter") as MockWriter,
-        patch("whisper_notes.app.LiveRecorder"),
-        patch("whisper_notes.app.LiveTranscriber"),
-        patch("whisper_notes.app.LiveTranscriberThread"),
-        patch("whisper_notes.app.subprocess"),
-        patch("whisper_notes.app.MenuBarButton"),
-        patch("whisper_notes.app.Dictator") as MockDictator,
-        patch("whisper_notes.app.DictationError", DictationError),
+        patch("quill.app.Recorder"),
+        patch("quill.app.Transcriber"),
+        patch("quill.app.Summarizer"),
+        patch("quill.app.NoteWriter") as MockWriter,
+        patch("quill.app.LiveRecorder"),
+        patch("quill.app.LiveTranscriber"),
+        patch("quill.app.LiveTranscriberThread"),
+        patch("quill.app.subprocess"),
+        patch("quill.app.MenuBarButton"),
+        patch("quill.app.Dictator") as MockDictator,
+        patch("quill.app.DictationError", DictationError),
     ):
         MockWriter.return_value.notes_dir = cfg.notes_dir
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         yield app, MockDictator
 
 
@@ -118,7 +120,7 @@ def _make_dictator(
     hotkey="alt_r", model_name="base", max_seconds=30, on_state_change=None
 ):
     """Create a Dictator with pynput Listener mocked."""
-    with patch("whisper_notes.dictator.Listener"):
+    with patch("quill.dictator.Listener"):
         d = Dictator(
             hotkey=hotkey,
             model_name=model_name,

@@ -31,9 +31,9 @@ def mock_appkit():
     }
 
     with patch.dict("sys.modules", mocks):
-        if "whisper_notes.live_window" in sys.modules:
-            del sys.modules["whisper_notes.live_window"]
-        import whisper_notes.live_window as lw
+        if "quill.live_window" in sys.modules:
+            del sys.modules["quill.live_window"]
+        import quill.live_window as lw
 
         # Patch _run_on_main to just call fn immediately (no main thread dispatch)
         with patch.object(lw, "_run_on_main", side_effect=lambda fn, wait=False: fn()):

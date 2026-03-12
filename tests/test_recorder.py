@@ -4,18 +4,18 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from whisper_notes.recorder import Recorder, RecordingError
+from quill.recorder import Recorder, RecordingError
 
 
 @pytest.fixture
 def mock_sounddevice():
-    with patch("whisper_notes.recorder.sd") as mock_sd:
+    with patch("quill.recorder.sd") as mock_sd:
         yield mock_sd
 
 
 @pytest.fixture
 def mock_wavfile():
-    with patch("whisper_notes.recorder.wavfile") as mock_wf:
+    with patch("quill.recorder.wavfile") as mock_wf:
         yield mock_wf
 
 

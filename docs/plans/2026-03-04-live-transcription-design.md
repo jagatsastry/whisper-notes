@@ -3,7 +3,7 @@
 
 ## Overview
 
-Add a **Live Transcribe** mode to whisper-notes that streams audio through `faster-whisper` in near-real-time, displaying a live floating window as the user speaks. On stop, the full transcript is summarized by Ollama and saved to `~/Notes/` — same as the existing Record Note flow.
+Add a **Live Transcribe** mode to quill that streams audio through `faster-whisper` in near-real-time, displaying a live floating window as the user speaks. On stop, the full transcript is summarized by Ollama and saved to `~/Notes/` — same as the existing Record Note flow.
 
 The existing **Record Note** mode (openai-whisper, batch) is unchanged.
 
@@ -26,16 +26,16 @@ The existing **Record Note** mode (openai-whisper, batch) is unchanged.
 
 | File | Responsibility |
 |---|---|
-| `whisper_notes/live_transcriber.py` | `faster-whisper` wrapper; accepts audio chunks, returns text |
-| `whisper_notes/live_window.py` | tkinter floating window; thread-safe text append |
-| `whisper_notes/live_recorder.py` | `sounddevice.InputStream` with callback feeding a `queue.Queue` |
+| `quill/live_transcriber.py` | `faster-whisper` wrapper; accepts audio chunks, returns text |
+| `quill/live_window.py` | tkinter floating window; thread-safe text append |
+| `quill/live_recorder.py` | `sounddevice.InputStream` with callback feeding a `queue.Queue` |
 
 ## Modified Components
 
 | File | Change |
 |---|---|
-| `whisper_notes/app.py` | Add Live Transcribe menu item, new state machine states |
-| `whisper_notes/config.py` | Add `LIVE_CHUNK_SECONDS` (default 3), `FASTER_WHISPER_MODEL` (default "base") |
+| `quill/app.py` | Add Live Transcribe menu item, new state machine states |
+| `quill/config.py` | Add `LIVE_CHUNK_SECONDS` (default 3), `FASTER_WHISPER_MODEL` (default "base") |
 | `pyproject.toml` | Add `faster-whisper` dependency |
 
 ---
@@ -90,7 +90,7 @@ A `threading.Thread` runs a loop:
 ### Menu bar states
 
 ```
-Idle:         🎙 Whisper Notes
+Idle:         🎙 Quill
               ─────────────────
               Record Note          ← existing (openai-whisper, batch)
               Live Transcribe      ← new (faster-whisper, streaming)

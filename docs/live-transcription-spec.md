@@ -6,7 +6,7 @@ This document is the authoritative specification for the live transcription feat
 
 ---
 
-## 1. Configuration Additions (`whisper_notes/config.py`)
+## 1. Configuration Additions (`quill/config.py`)
 
 ### 1.1 New Fields on `Config` Dataclass
 
@@ -51,7 +51,7 @@ Both fields use `field(default_factory=lambda: os.getenv(...))` with a `str` ann
 
 ---
 
-## 2. `LiveTranscriber` API (`whisper_notes/live_transcriber.py`)
+## 2. `LiveTranscriber` API (`quill/live_transcriber.py`)
 
 ### 2.1 Module-Level Constants
 
@@ -108,7 +108,7 @@ class LiveTranscriber:
 
 ---
 
-## 3. `LiveTranscriberThread` API (`whisper_notes/live_transcriber.py`)
+## 3. `LiveTranscriberThread` API (`quill/live_transcriber.py`)
 
 ### 3.1 Class Definition
 
@@ -176,7 +176,7 @@ class LiveTranscriberThread(threading.Thread):
 
 ---
 
-## 4. `LiveRecorder` API (`whisper_notes/live_recorder.py`)
+## 4. `LiveRecorder` API (`quill/live_recorder.py`)
 
 ### 4.1 Module-Level Constants
 
@@ -267,7 +267,7 @@ class LiveRecorder:
 
 ---
 
-## 5. `LiveWindow` API (`whisper_notes/live_window.py`)
+## 5. `LiveWindow` API (`quill/live_window.py`)
 
 ### 5.1 Imports
 
@@ -361,7 +361,7 @@ The app has four states: `"idle"`, `"recording"`, `"live"`, `"processing"`.
 
 | State | Icon | Title Text |
 |---|---|---|
-| `idle` | `"idle"` key in `ICONS` | `"Whisper Notes"` |
+| `idle` | `"idle"` key in `ICONS` | `"Quill"` |
 | `recording` | `"recording"` key | `"Recording..."` |
 | `live` | `"live"` key (new: `"🔴"`) | `"Live..."` |
 | `processing` | `"processing"` key | `"Transcribing..."` / `"Summarizing..."` / `"Finishing..."` / `"Saving..."` |
@@ -412,9 +412,9 @@ self._live_chunks: list[str] = []
 ### 6.5 Imports to Add
 
 ```python
-from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriberThread, LiveTranscriptionError
-from whisper_notes.live_recorder import LiveRecorder, LiveRecordingError as LiveRecErr
-from whisper_notes.live_window import LiveWindow
+from quill.live_transcriber import LiveTranscriber, LiveTranscriberThread, LiveTranscriptionError
+from quill.live_recorder import LiveRecorder, LiveRecordingError as LiveRecErr
+from quill.live_window import LiveWindow
 ```
 
 ### 6.6 `_on_live_transcribe(self, _)` — Start Live Mode
@@ -479,7 +479,7 @@ from whisper_notes.live_window import LiveWindow
 7. If `transcript` is non-empty (truthy):
    - Set state to `"processing"` / `"Summarizing..."`.
    - Call `self.summarizer.summarize(transcript)`.
-   - On `SummarizerError`: send notification `"Whisper Notes"`, `"Ollama unavailable"`, `"Saving raw transcript only."` — same as existing Record Note.
+   - On `SummarizerError`: send notification `"Quill"`, `"Ollama unavailable"`, `"Saving raw transcript only."` — same as existing Record Note.
 8. If `transcript` is empty: set `transcript = "(no speech detected)"`. Do NOT call Ollama.
 9. Set state to `"processing"` / `"Saving..."`.
 10. Call `self.writer.write(transcript=transcript, summary=summary, duration_seconds=0, model=f"live/{self.config.faster_whisper_model}", recorded_at=datetime.now())`.
@@ -496,7 +496,7 @@ Must also re-enable `_live_btn` and disable `_stop_live_btn`:
 
 ```python
 def _reset_to_idle(self):
-    self._set_state("idle", "Whisper Notes")
+    self._set_state("idle", "Quill")
     self._start_btn.set_callback(self._on_start_recording)
     self._stop_btn.set_callback(None)
     self._live_btn.set_callback(self._on_live_transcribe)
@@ -560,7 +560,7 @@ dependencies = [
 ## 9. File Layout
 
 ```
-whisper_notes/
+quill/
     __init__.py          (no change)
     app.py               (modified)
     config.py            (modified)

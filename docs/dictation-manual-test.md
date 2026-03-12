@@ -9,7 +9,7 @@ They cover scenarios that cannot be automated in CI.
 
 - macOS with Accessibility and Input Monitoring permissions granted for Terminal/Python
 - Microphone available and working
-- whisper-notes installed and running from menu bar
+- quill installed and running from menu bar
 - A text editor (TextEdit) open for verifying text injection
 
 ---
@@ -17,7 +17,7 @@ They cover scenarios that cannot be automated in CI.
 ## M1: Real hotkey detection
 
 **Steps:**
-1. Launch whisper-notes from the menu bar
+1. Launch quill from the menu bar
 2. Click "Enable Dictation" from the menu
 3. Verify: menu bar title shows "Dictation (hold alt_r to speak)"
 4. Press and hold the Right Alt key
@@ -33,7 +33,7 @@ They cover scenarios that cannot be automated in CI.
 
 **Steps:**
 1. Open TextEdit and place cursor in a new document
-2. Enable dictation from the whisper-notes menu
+2. Enable dictation from the quill menu
 3. Press and hold Right Alt
 4. Speak clearly: "Hello world"
 5. Release Right Alt
@@ -63,8 +63,8 @@ They cover scenarios that cannot be automated in CI.
 
 **Steps:**
 1. Go to System Settings > Privacy & Security > Accessibility
-2. Remove the whisper-notes app (or Terminal/Python) from the allowed list
-3. Launch whisper-notes and click "Enable Dictation"
+2. Remove the quill app (or Terminal/Python) from the allowed list
+3. Launch quill and click "Enable Dictation"
 4. Observe behavior:
    - **Outcome A (error detected):** A notification appears with title "Dictation Permission Required" and instructions to enable Accessibility
    - **Outcome B (silent failure):** Dictation appears to enable (title shows "Dictation (hold alt_r to speak)") but pressing the hotkey does nothing — no recording starts
@@ -80,7 +80,7 @@ They cover scenarios that cannot be automated in CI.
 **Steps:**
 1. Enable dictation, verify hotkey works (hold -> "listening..." title appears)
 2. Click "Disable Dictation" from the menu
-3. Verify: title returns to "Whisper Notes"
+3. Verify: title returns to "Quill"
 4. Press and hold the Right Alt key
 5. Verify: nothing happens (no title change, no recording)
 6. Verify: "Start Recording" and "Live Transcribe" menu items are enabled again
@@ -114,7 +114,7 @@ They cover scenarios that cannot be automated in CI.
 
 **Steps:**
 1. Set environment variable: `export DICTATION_MAX_SECONDS=5`
-2. Launch whisper-notes (or restart if already running)
+2. Launch quill (or restart if already running)
 3. Enable dictation
 4. Press and hold the hotkey
 5. Do NOT release — hold for more than 5 seconds

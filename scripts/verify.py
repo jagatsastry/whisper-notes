@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Verify whisper-notes works end-to-end with real components.
+Verify quill works end-to-end with real components.
 
 Usage:
     .venv/bin/python scripts/verify.py           # all checks
@@ -43,7 +43,7 @@ def check_env():
     except Exception as e:
         fail(f"sounddevice: {e}")
 
-    from whisper_notes.config import Config
+    from quill.config import Config
     cfg = Config()
     ok(f"Config loaded — notes_dir={cfg.notes_dir}, whisper_model={cfg.whisper_model}")
 
@@ -63,11 +63,11 @@ def check_env():
 def check_record_note(record_seconds=3):
     section(f"Record Note pipeline (recording {record_seconds}s of real mic audio)")
 
-    from whisper_notes.config import Config
-    from whisper_notes.recorder import Recorder
-    from whisper_notes.transcriber import Transcriber
-    from whisper_notes.summarizer import Summarizer, SummarizerError
-    from whisper_notes.note_writer import NoteWriter
+    from quill.config import Config
+    from quill.recorder import Recorder
+    from quill.transcriber import Transcriber
+    from quill.summarizer import Summarizer, SummarizerError
+    from quill.note_writer import NoteWriter
 
     cfg = Config()
 
@@ -116,10 +116,10 @@ def check_record_note(record_seconds=3):
 def check_live_transcribe_real(record_seconds=5):
     section(f"Live Transcribe pipeline (real mic + real faster-whisper, {record_seconds}s)")
 
-    from whisper_notes.live_recorder import LiveRecorder
-    from whisper_notes.live_transcriber import LiveTranscriber
-    from whisper_notes.note_writer import NoteWriter
-    from whisper_notes.config import Config
+    from quill.live_recorder import LiveRecorder
+    from quill.live_transcriber import LiveTranscriber
+    from quill.note_writer import NoteWriter
+    from quill.config import Config
 
     cfg = Config()
 
@@ -159,11 +159,11 @@ def check_live_transcribe_real(record_seconds=5):
 def check_live_transcribe():
     section("Live Transcribe pipeline (mocked faster-whisper)")
 
-    from whisper_notes.live_recorder import LiveRecorder
-    from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriberThread
-    from whisper_notes.live_window import LiveWindow
-    from whisper_notes.config import Config
-    from whisper_notes.note_writer import NoteWriter
+    from quill.live_recorder import LiveRecorder
+    from quill.live_transcriber import LiveTranscriber, LiveTranscriberThread
+    from quill.live_window import LiveWindow
+    from quill.config import Config
+    from quill.note_writer import NoteWriter
 
     cfg = Config()
 
@@ -179,7 +179,7 @@ def check_live_transcribe():
     ok(f"LiveRecorder — captured {len(audio)} frames in 0.5s")
 
     print("  Testing LiveTranscriberThread (mocked)...")
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         call_n = [0]
         def fake_transcribe(audio, **kw):
             call_n[0] += 1
@@ -228,7 +228,7 @@ def check_live_transcribe():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verify whisper-notes end-to-end")
+    parser = argparse.ArgumentParser(description="Verify quill end-to-end")
     parser.add_argument("--record", action="store_true", help="Record Note pipeline only")
     parser.add_argument("--live", action="store_true", help="Live Transcribe pipeline only (mocked)")
     parser.add_argument("--live-real", action="store_true", help="Live Transcribe with real mic + real faster-whisper")

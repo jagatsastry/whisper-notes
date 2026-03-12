@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from whisper_notes.note_writer import NoteWriter
-from whisper_notes.summarizer import Summarizer
-from whisper_notes.transcriber import Transcriber
+from quill.note_writer import NoteWriter
+from quill.summarizer import Summarizer
+from quill.transcriber import Transcriber
 
 
 @pytest.fixture
 def mock_transcriber():
-    with patch("whisper_notes.transcriber.whisper") as mock_whisper:
+    with patch("quill.transcriber.whisper") as mock_whisper:
         mock_model = MagicMock()
         mock_model.transcribe.return_value = {
             "text": " This is a test note about the team meeting."
@@ -62,14 +62,14 @@ def test_full_pipeline_ollama_offline(mock_transcriber, tmp_notes_dir, fixtures_
 
     import httpx
 
-    from whisper_notes.summarizer import SummarizerError
+    from quill.summarizer import SummarizerError
 
     writer = NoteWriter(notes_dir=tmp_notes_dir)
     recorded_at = datetime(2026, 3, 4, 10, 0, 0)
 
     transcript = mock_transcriber.transcribe(fixtures_dir / "silent_1s.wav")
 
-    with patch("whisper_notes.summarizer.httpx.post", side_effect=httpx.ConnectError("refused")):
+    with patch("quill.summarizer.httpx.post", side_effect=httpx.ConnectError("refused")):
         summarizer = Summarizer(ollama_url="http://localhost:11434", model="gemma2:9b", timeout=10)
         try:
             summary = summarizer.summarize(transcript)
@@ -112,9 +112,9 @@ def test_live_pipeline_full(tmp_notes_dir, respx_mock):
 
     import numpy as np
 
-    from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriberThread
-    from whisper_notes.note_writer import NoteWriter
-    from whisper_notes.summarizer import Summarizer
+    from quill.live_transcriber import LiveTranscriber, LiveTranscriberThread
+    from quill.note_writer import NoteWriter
+    from quill.summarizer import Summarizer
 
     respx_mock.post("http://localhost:11434/api/generate").mock(
         return_value=httpx.Response(
@@ -126,7 +126,7 @@ def test_live_pipeline_full(tmp_notes_dir, respx_mock):
         )
     )
 
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         call_count = [0]
 
         def fake_transcribe(audio, **kwargs):

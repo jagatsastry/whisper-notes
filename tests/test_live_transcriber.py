@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from whisper_notes.live_transcriber import (
+from quill.live_transcriber import (
     LiveTranscriber,
     LiveTranscriberThread,
     LiveTranscriptionError,
@@ -15,7 +15,7 @@ SAMPLE_RATE = 16000
 
 @pytest.fixture
 def mock_faster_whisper():
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         mock_instance = MagicMock()
         MockModel.return_value = mock_instance
         yield MockModel, mock_instance

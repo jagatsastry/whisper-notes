@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add a Live Transcribe mode to whisper-notes that streams audio through faster-whisper in real-time, displays live text in a floating tkinter window, then summarizes with Ollama and saves on stop.
+**Goal:** Add a Live Transcribe mode to quill that streams audio through faster-whisper in real-time, displays live text in a floating tkinter window, then summarizes with Ollama and saves on stop.
 
 **Architecture:** `sounddevice.InputStream` callback pushes raw audio into a `queue.Queue`; a background `LiveTranscriberThread` drains N-second chunks through `faster-whisper` and appends results to a thread-safe tkinter window via `root.after()`. On stop, the full accumulated transcript goes through the existing `Summarizer` → `NoteWriter` pipeline. Record Note (openai-whisper, batch) is unchanged.
 
@@ -13,7 +13,7 @@
 ## Pre-flight
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
+cd /Users/jagatp/workspace/quill
 source .venv/bin/activate
 # Verify existing tests still pass
 .venv/bin/pytest -v --tb=short
@@ -27,7 +27,7 @@ Expected: 38 passed
 
 **Files:**
 - Modify: `pyproject.toml`
-- Modify: `whisper_notes/config.py`
+- Modify: `quill/config.py`
 - Modify: `tests/test_config.py`
 
 **Step 1: Add faster-whisper to pyproject.toml**
@@ -39,7 +39,7 @@ In the `[project]` `dependencies` list, add:
 
 Install it:
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && uv sync
+cd /Users/jagatp/workspace/quill && uv sync
 ```
 
 **Step 2: Write failing tests for new config fields**
@@ -77,11 +77,11 @@ def test_faster_whisper_model_override(monkeypatch):
 **Step 3: Run to verify failure**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_config.py -v 2>&1 | tail -10
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_config.py -v 2>&1 | tail -10
 ```
 Expected: 5 new tests FAIL — `AttributeError: 'Config' object has no attribute 'live_chunk_seconds'`
 
-**Step 4: Implement in `whisper_notes/config.py`**
+**Step 4: Implement in `quill/config.py`**
 
 Add two new fields to the `Config` dataclass (after `notes_dir`):
 ```python
@@ -102,15 +102,15 @@ if self.live_chunk_seconds < 1:
 **Step 5: Run tests**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_config.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_config.py -v
 ```
 Expected: all 11 PASSED
 
 **Step 6: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
-git add pyproject.toml uv.lock whisper_notes/config.py tests/test_config.py
+cd /Users/jagatp/workspace/quill
+git add pyproject.toml uv.lock quill/config.py tests/test_config.py
 git commit -m "feat: add faster-whisper dep and live transcription config fields"
 ```
 
@@ -119,7 +119,7 @@ git commit -m "feat: add faster-whisper dep and live transcription config fields
 ### Task 2: `live_transcriber.py` — faster-whisper chunk transcription
 
 **Files:**
-- Create: `whisper_notes/live_transcriber.py`
+- Create: `quill/live_transcriber.py`
 - Create: `tests/test_live_transcriber.py`
 
 **Step 1: Write failing tests**
@@ -129,14 +129,14 @@ Create `tests/test_live_transcriber.py`:
 import pytest
 import numpy as np
 from unittest.mock import patch, MagicMock
-from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriptionError
+from quill.live_transcriber import LiveTranscriber, LiveTranscriptionError
 
 SAMPLE_RATE = 16000
 
 
 @pytest.fixture
 def mock_faster_whisper():
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         mock_instance = MagicMock()
         MockModel.return_value = mock_instance
         yield MockModel, mock_instance
@@ -204,11 +204,11 @@ def test_concatenates_multiple_segments(mock_faster_whisper):
 **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_transcriber.py -v 2>&1 | head -15
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_transcriber.py -v 2>&1 | head -15
 ```
-Expected: ImportError — `No module named 'whisper_notes.live_transcriber'`
+Expected: ImportError — `No module named 'quill.live_transcriber'`
 
-**Step 3: Implement `whisper_notes/live_transcriber.py`**
+**Step 3: Implement `quill/live_transcriber.py`**
 
 ```python
 import threading
@@ -246,15 +246,15 @@ class LiveTranscriber:
 **Step 4: Run tests**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_transcriber.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_transcriber.py -v
 ```
 Expected: 6 PASSED
 
 **Step 5: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
-git add whisper_notes/live_transcriber.py tests/test_live_transcriber.py
+cd /Users/jagatp/workspace/quill
+git add quill/live_transcriber.py tests/test_live_transcriber.py
 git commit -m "feat: live transcriber using faster-whisper with lazy model loading"
 ```
 
@@ -263,7 +263,7 @@ git commit -m "feat: live transcriber using faster-whisper with lazy model loadi
 ### Task 3: `live_window.py` — tkinter floating transcript window
 
 **Files:**
-- Create: `whisper_notes/live_window.py`
+- Create: `quill/live_window.py`
 - Create: `tests/test_live_window.py`
 
 **Step 1: Write failing tests**
@@ -281,9 +281,9 @@ def mock_tk():
     with patch.dict("sys.modules", {"tkinter": tk_mock, "tkinter.scrolledtext": MagicMock()}):
         import importlib
         import sys
-        if "whisper_notes.live_window" in sys.modules:
-            del sys.modules["whisper_notes.live_window"]
-        import whisper_notes.live_window as lw
+        if "quill.live_window" in sys.modules:
+            del sys.modules["quill.live_window"]
+        import quill.live_window as lw
         yield lw, tk_mock
 
 
@@ -321,11 +321,11 @@ def test_destroy_is_safe_to_call_twice(mock_tk):
 **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_window.py -v 2>&1 | head -15
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_window.py -v 2>&1 | head -15
 ```
-Expected: ImportError — `No module named 'whisper_notes.live_window'`
+Expected: ImportError — `No module named 'quill.live_window'`
 
-**Step 3: Implement `whisper_notes/live_window.py`**
+**Step 3: Implement `quill/live_window.py`**
 
 ```python
 import tkinter as tk
@@ -394,15 +394,15 @@ class LiveWindow:
 **Step 4: Run tests**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_window.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_window.py -v
 ```
 Expected: 4 PASSED
 
 **Step 5: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
-git add whisper_notes/live_window.py tests/test_live_window.py
+cd /Users/jagatp/workspace/quill
+git add quill/live_window.py tests/test_live_window.py
 git commit -m "feat: live transcript floating window with thread-safe text append"
 ```
 
@@ -411,7 +411,7 @@ git commit -m "feat: live transcript floating window with thread-safe text appen
 ### Task 4: `live_recorder.py` — sounddevice InputStream with queue
 
 **Files:**
-- Create: `whisper_notes/live_recorder.py`
+- Create: `quill/live_recorder.py`
 - Create: `tests/test_live_recorder.py`
 
 **Step 1: Write failing tests**
@@ -422,12 +422,12 @@ import pytest
 import numpy as np
 import queue
 from unittest.mock import patch, MagicMock
-from whisper_notes.live_recorder import LiveRecorder, LiveRecordingError
+from quill.live_recorder import LiveRecorder, LiveRecordingError
 
 
 @pytest.fixture
 def mock_sd():
-    with patch("whisper_notes.live_recorder.sd") as mock:
+    with patch("quill.live_recorder.sd") as mock:
         yield mock
 
 
@@ -502,11 +502,11 @@ def test_drain_returns_concatenated_audio(mock_sd):
 **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_recorder.py -v 2>&1 | head -15
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_recorder.py -v 2>&1 | head -15
 ```
 Expected: ImportError
 
-**Step 3: Implement `whisper_notes/live_recorder.py`**
+**Step 3: Implement `quill/live_recorder.py`**
 
 ```python
 import queue
@@ -572,15 +572,15 @@ class LiveRecorder:
 **Step 4: Run tests**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_recorder.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_recorder.py -v
 ```
 Expected: 8 PASSED
 
 **Step 5: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
-git add whisper_notes/live_recorder.py tests/test_live_recorder.py
+cd /Users/jagatp/workspace/quill
+git add quill/live_recorder.py tests/test_live_recorder.py
 git commit -m "feat: live recorder with sounddevice InputStream and queue callback"
 ```
 
@@ -588,7 +588,7 @@ git commit -m "feat: live recorder with sounddevice InputStream and queue callba
 
 ### Task 5: `LiveTranscriberThread` — background chunk processor
 
-Add to `whisper_notes/live_transcriber.py` and tests.
+Add to `quill/live_transcriber.py` and tests.
 
 **Step 1: Write failing tests for the thread**
 
@@ -596,7 +596,7 @@ Add to `tests/test_live_transcriber.py`:
 ```python
 import threading
 import time
-from whisper_notes.live_transcriber import LiveTranscriberThread
+from quill.live_transcriber import LiveTranscriberThread
 
 
 def test_thread_processes_chunks_and_calls_callback(mock_faster_whisper):
@@ -647,11 +647,11 @@ def test_thread_stops_cleanly(mock_faster_whisper):
 **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_transcriber.py::test_thread_processes_chunks_and_calls_callback tests/test_live_transcriber.py::test_thread_stops_cleanly -v 2>&1 | head -15
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_transcriber.py::test_thread_processes_chunks_and_calls_callback tests/test_live_transcriber.py::test_thread_stops_cleanly -v 2>&1 | head -15
 ```
 Expected: ImportError — `cannot import name 'LiveTranscriberThread'`
 
-**Step 3: Add `LiveTranscriberThread` to `whisper_notes/live_transcriber.py`**
+**Step 3: Add `LiveTranscriberThread` to `quill/live_transcriber.py`**
 
 Append to the existing file:
 ```python
@@ -714,15 +714,15 @@ class LiveTranscriberThread(threading.Thread):
 **Step 4: Run tests**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_live_transcriber.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_live_transcriber.py -v
 ```
 Expected: 8 PASSED
 
 **Step 5: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
-git add whisper_notes/live_transcriber.py tests/test_live_transcriber.py
+cd /Users/jagatp/workspace/quill
+git add quill/live_transcriber.py tests/test_live_transcriber.py
 git commit -m "feat: LiveTranscriberThread for background chunk processing"
 ```
 
@@ -731,7 +731,7 @@ git commit -m "feat: LiveTranscriberThread for background chunk processing"
 ### Task 6: Wire live mode into `app.py`
 
 **Files:**
-- Modify: `whisper_notes/app.py`
+- Modify: `quill/app.py`
 - Modify: `tests/test_app.py`
 
 **Step 1: Write failing tests**
@@ -742,15 +742,15 @@ def test_live_transcribe_menu_item_present(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
-        app = app_module.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.LiveWindow"):
+        app = app_module.QuillApp(cfg)
         menu_labels = [str(item) for item in app.menu]
         assert any("Live" in str(item) for item in app.menu)
 
@@ -759,15 +759,15 @@ def test_live_transcribe_changes_state(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder") as MockLiveRecorder, \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"):
-        app = app_module.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder") as MockLiveRecorder, \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.LiveWindow"):
+        app = app_module.QuillApp(cfg)
         app._on_live_transcribe(None)
         assert app.state == "live"
         MockLiveRecorder.return_value.start.assert_called_once()
@@ -777,16 +777,16 @@ def test_stop_live_triggers_pipeline(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.LiveWindow"), \
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.LiveWindow"), \
          patch("threading.Thread") as MockThread:
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         app.state = "live"
         app._on_stop_live(None)
         MockThread.assert_called()
@@ -795,17 +795,17 @@ def test_stop_live_triggers_pipeline(mock_rumps, tmp_notes_dir):
 **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_app.py::test_live_transcribe_menu_item_present tests/test_app.py::test_live_transcribe_changes_state tests/test_app.py::test_stop_live_triggers_pipeline -v 2>&1 | head -20
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_app.py::test_live_transcribe_menu_item_present tests/test_app.py::test_live_transcribe_changes_state tests/test_app.py::test_stop_live_triggers_pipeline -v 2>&1 | head -20
 ```
 Expected: FAIL — attribute errors
 
-**Step 3: Add live mode to `whisper_notes/app.py`**
+**Step 3: Add live mode to `quill/app.py`**
 
 Add imports at the top (after existing imports):
 ```python
-from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriberThread, LiveTranscriptionError
-from whisper_notes.live_recorder import LiveRecorder, LiveRecordingError as LiveRecErr
-from whisper_notes.live_window import LiveWindow
+from quill.live_transcriber import LiveTranscriber, LiveTranscriberThread, LiveTranscriptionError
+from quill.live_recorder import LiveRecorder, LiveRecordingError as LiveRecErr
+from quill.live_window import LiveWindow
 ```
 
 Add to `ICONS`:
@@ -813,7 +813,7 @@ Add to `ICONS`:
 "live": "🔴",
 ```
 
-In `WhisperNotesApp.__init__`, after creating `self.writer`, add:
+In `QuillApp.__init__`, after creating `self.writer`, add:
 ```python
 self.live_recorder = LiveRecorder()
 self.live_transcriber = LiveTranscriber(model_name=config.faster_whisper_model)
@@ -843,7 +843,7 @@ self.menu = [
 ]
 ```
 
-Add new methods to `WhisperNotesApp`:
+Add new methods to `QuillApp`:
 ```python
 def _on_live_transcribe(self, _):
     try:
@@ -919,7 +919,7 @@ def _finish_live(self):
             try:
                 summary = self.summarizer.summarize(transcript)
             except SummarizerError:
-                rumps.notification("Whisper Notes", "Ollama unavailable", "Saving raw transcript only.")
+                rumps.notification("Quill", "Ollama unavailable", "Saving raw transcript only.")
         self._set_state("processing", "Saving...")
         from datetime import datetime
         path = self.writer.write(
@@ -942,7 +942,7 @@ def _finish_live(self):
 Also update `_reset_to_idle` to re-enable `_live_btn`:
 ```python
 def _reset_to_idle(self):
-    self._set_state("idle", "Whisper Notes")
+    self._set_state("idle", "Quill")
     self._start_btn.set_callback(self._on_start_recording)
     self._stop_btn.set_callback(None)
     self._live_btn.set_callback(self._on_live_transcribe)
@@ -952,22 +952,22 @@ def _reset_to_idle(self):
 **Step 4: Run tests**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_app.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_app.py -v
 ```
 Expected: 7 PASSED (4 existing + 3 new)
 
 **Step 5: Run full suite**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest -v --tb=short 2>&1 | tail -10
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest -v --tb=short 2>&1 | tail -10
 ```
 Expected: all PASSED
 
 **Step 6: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
-git add whisper_notes/app.py tests/test_app.py
+cd /Users/jagatp/workspace/quill
+git add quill/app.py tests/test_app.py
 git commit -m "feat: add Live Transcribe mode to menu bar app"
 ```
 
@@ -985,9 +985,9 @@ Add to `tests/test_integration.py`:
 def test_live_pipeline_full(tmp_notes_dir, respx_mock):
     """Full live pipeline: fake audio chunks → faster-whisper mock → Ollama mock → note saved."""
     from unittest.mock import patch, MagicMock
-    from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriberThread
-    from whisper_notes.note_writer import NoteWriter
-    from whisper_notes.summarizer import Summarizer
+    from quill.live_transcriber import LiveTranscriber, LiveTranscriberThread
+    from quill.note_writer import NoteWriter
+    from quill.summarizer import Summarizer
     import numpy as np
 
     respx_mock.post("http://localhost:11434/api/generate").mock(
@@ -997,7 +997,7 @@ def test_live_pipeline_full(tmp_notes_dir, respx_mock):
         })
     )
 
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         call_count = [0]
         def fake_transcribe(audio, **kwargs):
             call_count[0] += 1
@@ -1043,14 +1043,14 @@ def test_live_pipeline_full(tmp_notes_dir, respx_mock):
 **Step 2: Run**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest tests/test_integration.py -v
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest tests/test_integration.py -v
 ```
 Expected: 4 PASSED
 
 **Step 3: Commit**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes
+cd /Users/jagatp/workspace/quill
 git add tests/test_integration.py
 git commit -m "test: integration test for full live transcription pipeline"
 ```
@@ -1062,27 +1062,27 @@ git commit -m "test: integration test for full live transcription pipeline"
 **Step 1: Run full test suite**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/pytest -v --tb=short
+cd /Users/jagatp/workspace/quill && .venv/bin/pytest -v --tb=short
 ```
 Expected: all tests PASS (was 38, now ~50+)
 
 **Step 2: Run linter**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/ruff check whisper_notes/ tests/
+cd /Users/jagatp/workspace/quill && .venv/bin/ruff check quill/ tests/
 ```
-If issues: `uv run ruff check --fix whisper_notes/ tests/` then commit fixes.
+If issues: `uv run ruff check --fix quill/ tests/` then commit fixes.
 
 **Step 3: Push**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && git push origin main
+cd /Users/jagatp/workspace/quill && git push origin main
 ```
 
 **Step 4: Smoke test live mode**
 
 ```bash
-cd /Users/jagatp/workspace/whisper-notes && .venv/bin/whisper-notes
+cd /Users/jagatp/workspace/quill && .venv/bin/quill
 ```
 
 Click **Live Transcribe** in menu bar, speak for 10s, click **Stop Live**, verify note saved in `~/Notes/`.

@@ -1,4 +1,4 @@
-# whisper-notes
+# quill
 
 macOS menu bar app for voice notetaking. Records locally, transcribes with [OpenAI Whisper](https://github.com/openai/whisper), summarizes with [Ollama](https://ollama.ai), saves to `~/Notes/` as markdown.
 
@@ -16,8 +16,8 @@ macOS menu bar app for voice notetaking. Records locally, transcribes with [Open
 # Install Python 3.11 + tkinter via Homebrew (required for Live Transcribe window)
 brew install python@3.11 python-tk@3.11
 
-git clone https://github.com/YOUR_USERNAME/whisper-notes
-cd whisper-notes
+git clone https://github.com/YOUR_USERNAME/quill
+cd quill
 uv venv --python /opt/homebrew/bin/python3.11
 uv sync
 uv pip install -e .
@@ -26,16 +26,16 @@ uv pip install -e .
 ## Run
 
 ```bash
-whisper-notes
+quill
 # or
-python -m whisper_notes.app
+python -m quill.app
 ```
 
-The app appears in your macOS menu bar as 🎙 Whisper Notes.
+The app appears in your macOS menu bar as 🎙 Quill.
 
 ## Usage
 
-1. Click **🎙 Whisper Notes** in the menu bar
+1. Click **🎙 Quill** in the menu bar
 2. Click **Start Recording** — the icon changes to ⏺ Recording...
 3. Speak your note
 4. Click **Stop Recording** — Whisper transcribes, Ollama summarizes

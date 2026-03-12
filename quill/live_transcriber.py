@@ -12,15 +12,20 @@ class LiveTranscriptionError(RuntimeError):
 
 
 class LiveTranscriber:
-    def __init__(self, model_name: str = "base") -> None:
+    def __init__(self, model_name: str = "base", download_root: str | None = None) -> None:
         self.model_name = model_name
+        self._download_root = download_root
         self._model = None
         self._lock = threading.Lock()
 
     def _load_model(self) -> None:
         with self._lock:
             if self._model is None:
-                self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+                kwargs = {"device": "cpu", "compute_type": "int8"}
+                if self._download_root is not None:
+                    kwargs["download_root"] = self._download_root
+                    kwargs["local_files_only"] = True
+                self._model = WhisperModel(self.model_name, **kwargs)
 
     def transcribe_chunk(self, audio: np.ndarray) -> str:
         self._load_model()

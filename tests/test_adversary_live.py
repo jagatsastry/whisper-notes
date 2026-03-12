@@ -10,9 +10,9 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from whisper_notes.config import Config, ConfigError
-from whisper_notes.live_recorder import LiveRecorder, LiveRecordingError
-from whisper_notes.live_transcriber import (
+from quill.config import Config, ConfigError
+from quill.live_recorder import LiveRecorder, LiveRecordingError
+from quill.live_transcriber import (
     LiveTranscriber,
     LiveTranscriberThread,
     LiveTranscriptionError,
@@ -28,7 +28,7 @@ SAMPLE_RATE = 16000
 
 @pytest.fixture
 def mock_faster_whisper():
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         mock_instance = MagicMock()
         MockModel.return_value = mock_instance
         yield MockModel, mock_instance
@@ -36,7 +36,7 @@ def mock_faster_whisper():
 
 @pytest.fixture
 def mock_sd():
-    with patch("whisper_notes.live_recorder.sd") as mock:
+    with patch("quill.live_recorder.sd") as mock:
         yield mock
 
 
@@ -64,9 +64,9 @@ def mock_tk():
     }
 
     with patch.dict("sys.modules", mocks):
-        if "whisper_notes.live_window" in sys.modules:
-            del sys.modules["whisper_notes.live_window"]
-        import whisper_notes.live_window as lw
+        if "quill.live_window" in sys.modules:
+            del sys.modules["quill.live_window"]
+        import quill.live_window as lw
 
         with patch.object(lw, "_run_on_main", side_effect=lambda fn, wait=False: fn()):
             with patch.object(lw, "_make_delegate", return_value=MagicMock()):
@@ -91,7 +91,7 @@ class TestConfigLiveFields:
     def test_faster_whisper_model_default(self):
         """AC-1.2"""
         cfg = Config()
-        assert cfg.faster_whisper_model == "base"
+        assert cfg.faster_whisper_model == "large-v3"
 
     def test_live_chunk_seconds_float_string_raises(self, monkeypatch):
         """AC-1.3: LIVE_CHUNK_SECONDS='3.5' must raise ConfigError because int('3.5') fails."""

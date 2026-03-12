@@ -1,17 +1,21 @@
 
 import pytest
 
-from whisper_notes.config import Config, ConfigError
+from quill.config import Config, ConfigError
 
 
 def test_defaults():
     cfg = Config()
-    assert cfg.whisper_model == "base"
+    assert cfg.whisper_model == "large-v3"
+    assert cfg.faster_whisper_model == "large-v3"
     assert cfg.ollama_url == "http://localhost:11434"
     assert cfg.ollama_model == "gemma2:9b"
     assert cfg.ollama_timeout == 60
     assert cfg.notes_dir.name == "Notes"
     assert cfg.notes_dir.is_absolute()
+    assert cfg.enable_transcription is False
+    assert cfg.enable_summarization is False
+    assert cfg.use_small_model is False
 
 
 def test_env_overrides(monkeypatch):
@@ -76,7 +80,7 @@ def test_live_chunk_seconds_less_than_one(monkeypatch):
 
 def test_faster_whisper_model_default():
     cfg = Config()
-    assert cfg.faster_whisper_model == "base"
+    assert cfg.faster_whisper_model == "large-v3"
 
 
 def test_faster_whisper_model_override(monkeypatch):
@@ -143,3 +147,35 @@ def test_dictation_max_seconds_greater_than_300(monkeypatch):
     monkeypatch.setenv("DICTATION_MAX_SECONDS", "301")
     with pytest.raises(ConfigError, match="must be <= 300"):
         Config()
+
+
+# --- Feature flag tests ---
+
+
+def test_enable_transcription_flag(monkeypatch):
+    monkeypatch.setenv("ENABLE_TRANSCRIPTION", "true")
+    cfg = Config()
+    assert cfg.enable_transcription is True
+
+
+def test_enable_summarization_flag(monkeypatch):
+    monkeypatch.setenv("ENABLE_SUMMARIZATION", "1")
+    cfg = Config()
+    assert cfg.enable_summarization is True
+
+
+def test_use_small_model_overrides_defaults(monkeypatch):
+    monkeypatch.setenv("USE_SMALL_MODEL", "yes")
+    cfg = Config()
+    assert cfg.use_small_model is True
+    assert cfg.whisper_model == "base"
+    assert cfg.faster_whisper_model == "base"
+    assert cfg.dictation_model == "base"
+
+
+def test_use_small_model_does_not_override_explicit(monkeypatch):
+    monkeypatch.setenv("USE_SMALL_MODEL", "true")
+    monkeypatch.setenv("DICTATION_MODEL", "medium")
+    cfg = Config()
+    assert cfg.dictation_model == "medium"
+    assert cfg.faster_whisper_model == "base"

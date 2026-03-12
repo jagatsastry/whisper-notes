@@ -8,7 +8,7 @@ import numpy as np
 import sounddevice as sd
 from pynput.keyboard import Controller, Key, KeyCode, Listener
 
-from whisper_notes.live_transcriber import LiveTranscriber, LiveTranscriptionError
+from quill.live_transcriber import LiveTranscriber, LiveTranscriptionError
 
 
 class DictationError(RuntimeError):
@@ -164,6 +164,7 @@ class Dictator:
         model_name: str,
         max_seconds: int,
         on_state_change: Callable[[str], None] | None = None,
+        download_root: str | None = None,
     ) -> None:
         self._hotkey_listener = HotkeyListener(
             hotkey=hotkey,
@@ -171,7 +172,7 @@ class Dictator:
             on_release=self._on_hotkey_release,
         )
         self._audio_capture = AudioCapture(sample_rate=16000)
-        self._transcriber = LiveTranscriber(model_name=model_name)
+        self._transcriber = LiveTranscriber(model_name=model_name, download_root=download_root)
         self._text_injector = TextInjector(restore_clipboard=True)
         self._state = "off"
         self._max_seconds = max_seconds

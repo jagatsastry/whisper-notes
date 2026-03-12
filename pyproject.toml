@@ -1,5 +1,5 @@
 [project]
-name = "whisper-notes"
+name = "quill"
 version = "0.1.0"
 description = "macOS menu bar voice notetaking with local Whisper + Ollama"
 requires-python = ">=3.11"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-whisper-notes = "whisper_notes.app:main"
+quill = "quill.app:main"
 
 [dependency-groups]
 dev = [

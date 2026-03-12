@@ -3,12 +3,12 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from whisper_notes.live_recorder import LiveRecorder, LiveRecordingError
+from quill.live_recorder import LiveRecorder, LiveRecordingError
 
 
 @pytest.fixture
 def mock_sd():
-    with patch("whisper_notes.live_recorder.sd") as mock:
+    with patch("quill.live_recorder.sd") as mock:
         yield mock
 
 

@@ -13,4 +13,4 @@ jobs:
       - name: Run tests
         run: uv run pytest -v
       - name: Lint
-        run: uv run ruff check whisper_notes/ tests/
+        run: uv run ruff check quill/ tests/

@@ -10,9 +10,9 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from whisper_notes.config import Config
-from whisper_notes.dictator import DictationError as _RealDictationError
-from whisper_notes.live_recorder import LiveRecordingError
+from quill.config import Config
+from quill.dictator import DictationError as _RealDictationError
+from quill.live_recorder import LiveRecordingError
 
 
 @pytest.fixture
@@ -28,42 +28,44 @@ def mock_rumps():
         "rumps": rumps_mock,
         "objc": MagicMock(),
         "AppKit": MagicMock(),
-        "whisper_notes.recorder": MagicMock(),
-        "whisper_notes.transcriber": MagicMock(),
-        "whisper_notes.summarizer": MagicMock(),
-        "whisper_notes.note_writer": MagicMock(),
-        "whisper_notes.live_transcriber": MagicMock(),
-        "whisper_notes.live_recorder": MagicMock(),
-        "whisper_notes.live_window": MagicMock(),
-        "whisper_notes.dictator": dictator_mock,
+        "quill.recorder": MagicMock(),
+        "quill.transcriber": MagicMock(),
+        "quill.summarizer": MagicMock(),
+        "quill.note_writer": MagicMock(),
+        "quill.live_transcriber": MagicMock(),
+        "quill.live_recorder": MagicMock(),
+        "quill.live_window": MagicMock(),
+        "quill.dictator": dictator_mock,
     }
 
     with patch.dict("sys.modules", sub_mocks):
-        if "whisper_notes.app" in sys.modules:
-            del sys.modules["whisper_notes.app"]
-        import whisper_notes.app as app_module
+        if "quill.app" in sys.modules:
+            del sys.modules["quill.app"]
+        import quill.app as app_module
 
         yield app_module, rumps_mock
 
 
 def _make_app(mock_rumps, tmp_notes_dir):
-    """Create a WhisperNotesApp with all dependencies mocked."""
+    """Create a QuillApp with all dependencies mocked."""
     app_module, rumps_mock = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
+    cfg.enable_transcription = True
+    cfg.enable_summarization = True
 
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter") as MockWriter, \
-         patch("whisper_notes.app.LiveRecorder") as MockLiveRecorder, \
-         patch("whisper_notes.app.LiveTranscriber") as MockLiveTranscriber, \
-         patch("whisper_notes.app.LiveTranscriberThread") as MockThread, \
-         patch("whisper_notes.app.subprocess") as MockSubprocess, \
-         patch("whisper_notes.app.MenuBarButton"), \
-         patch("whisper_notes.app.Dictator"):
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter") as MockWriter, \
+         patch("quill.app.LiveRecorder") as MockLiveRecorder, \
+         patch("quill.app.LiveTranscriber") as MockLiveTranscriber, \
+         patch("quill.app.LiveTranscriberThread") as MockThread, \
+         patch("quill.app.subprocess") as MockSubprocess, \
+         patch("quill.app.MenuBarButton"), \
+         patch("quill.app.Dictator"):
         MockWriter.return_value.notes_dir = tmp_notes_dir
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         # Store references for test assertions
         app._mock_live_recorder_cls = MockLiveRecorder
         app._mock_live_transcriber_cls = MockLiveTranscriber

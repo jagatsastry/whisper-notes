@@ -2,7 +2,7 @@
 import httpx
 import pytest
 
-from whisper_notes.summarizer import Summarizer, SummarizerError
+from quill.summarizer import Summarizer, SummarizerError
 
 OLLAMA_URL = "http://localhost:11434"
 MODEL = "gemma2:9b"

@@ -1,9 +1,9 @@
-# Whisper Notes — Design Document
+# Quill — Design Document
 *2026-03-04*
 
 ## Overview
 
-A macOS menu bar app (`whisper-notes`) that records voice, transcribes locally with OpenAI Whisper, summarizes with a local Ollama model, and saves both raw transcript and structured summary as markdown notes.
+A macOS menu bar app (`quill`) that records voice, transcribes locally with OpenAI Whisper, summarizes with a local Ollama model, and saves both raw transcript and structured summary as markdown notes.
 
 ## Goals
 
@@ -48,12 +48,12 @@ menu bar (rumps, main thread)
 
 | File | Responsibility |
 |---|---|
-| `whisper_notes/app.py` | `rumps.App` subclass, menu state, user interactions |
-| `whisper_notes/recorder.py` | Audio capture via `sounddevice`, WAV file writer |
-| `whisper_notes/transcriber.py` | Wraps `openai-whisper`, loads model once, exposes `transcribe(path) -> str` |
-| `whisper_notes/summarizer.py` | HTTP client to Ollama `/api/generate`, returns summary string |
-| `whisper_notes/note_writer.py` | Writes `~/Notes/YYYY-MM-DD-HH-MM.md` with raw + summary sections |
-| `whisper_notes/config.py` | Config dataclass (model size, Ollama URL, notes dir, etc.) |
+| `quill/app.py` | `rumps.App` subclass, menu state, user interactions |
+| `quill/recorder.py` | Audio capture via `sounddevice`, WAV file writer |
+| `quill/transcriber.py` | Wraps `openai-whisper`, loads model once, exposes `transcribe(path) -> str` |
+| `quill/summarizer.py` | HTTP client to Ollama `/api/generate`, returns summary string |
+| `quill/note_writer.py` | Writes `~/Notes/YYYY-MM-DD-HH-MM.md` with raw + summary sections |
+| `quill/config.py` | Config dataclass (model size, Ollama URL, notes dir, etc.) |
 | `tests/` | Full test suite |
 | `pyproject.toml` | uv-managed project, dependencies, entry point script |
 
@@ -104,7 +104,7 @@ Config loaded from env vars (with defaults):
 ## Menu Bar States
 
 ```
-Idle:          🎙 Whisper Notes
+Idle:          🎙 Quill
                ─────────────────
                Start Recording
                Open Notes Folder
@@ -199,8 +199,8 @@ Error:         ⚠ Error — see notification
 ## Project Structure
 
 ```
-whisper-notes/
-├── whisper_notes/
+quill/
+├── quill/
 │   ├── __init__.py
 │   ├── app.py
 │   ├── config.py

@@ -1,5 +1,5 @@
 """
-End-to-end integration tests for whisper-notes Live Transcription.
+End-to-end integration tests for quill Live Transcription.
 
 These tests exercise full user flows derived from the spec and design doc,
 verifying observable outcomes on the real file system.
@@ -26,13 +26,13 @@ import httpx
 import numpy as np
 import pytest
 
-from whisper_notes.config import Config
-from whisper_notes.live_transcriber import (
+from quill.config import Config
+from quill.live_transcriber import (
     LiveTranscriber,
     LiveTranscriberThread,
 )
-from whisper_notes.note_writer import NoteWriter
-from whisper_notes.summarizer import Summarizer, SummarizerError
+from quill.note_writer import NoteWriter
+from quill.summarizer import Summarizer, SummarizerError
 
 SAMPLE_RATE = 16000
 
@@ -52,19 +52,19 @@ def mock_rumps():
         "rumps": rumps_mock,
         "objc": MagicMock(),
         "AppKit": MagicMock(),
-        "whisper_notes.recorder": MagicMock(),
-        "whisper_notes.transcriber": MagicMock(),
-        "whisper_notes.summarizer": MagicMock(),
-        "whisper_notes.note_writer": MagicMock(),
-        "whisper_notes.live_transcriber": MagicMock(),
-        "whisper_notes.live_recorder": MagicMock(),
-        "whisper_notes.live_window": MagicMock(),
+        "quill.recorder": MagicMock(),
+        "quill.transcriber": MagicMock(),
+        "quill.summarizer": MagicMock(),
+        "quill.note_writer": MagicMock(),
+        "quill.live_transcriber": MagicMock(),
+        "quill.live_recorder": MagicMock(),
+        "quill.live_window": MagicMock(),
     }
 
     with patch.dict("sys.modules", sub_mocks):
-        if "whisper_notes.app" in sys.modules:
-            del sys.modules["whisper_notes.app"]
-        import whisper_notes.app as app_module
+        if "quill.app" in sys.modules:
+            del sys.modules["quill.app"]
+        import quill.app as app_module
 
         yield app_module, rumps_mock
 
@@ -80,7 +80,7 @@ def notes_dir(tmp_path):
 @pytest.fixture
 def mock_whisper_model():
     """Mock faster-whisper WhisperModel to return deterministic text."""
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         call_count = [0]
 
         def fake_transcribe(audio, **kwargs):
@@ -96,7 +96,7 @@ def mock_whisper_model():
 @pytest.fixture
 def mock_whisper_silent():
     """Mock faster-whisper WhisperModel to return empty (silence)."""
-    with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+    with patch("quill.live_transcriber.WhisperModel") as MockModel:
         MockModel.return_value.transcribe.return_value = ([], MagicMock())
         yield MockModel
 
@@ -222,7 +222,7 @@ class TestWindowCloseMidSession:
             return_value=httpx.Response(200, json={"response": "partial summary", "done": True})
         )
 
-        with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+        with patch("quill.live_transcriber.WhisperModel") as MockModel:
             chunk_num = [0]
 
             def fake_transcribe(audio, **kwargs):
@@ -363,7 +363,7 @@ class TestOllamaOffline:
         summary = None
 
         mock_side_effect = httpx.ConnectError("refused")
-        with patch("whisper_notes.summarizer.httpx.post", side_effect=mock_side_effect):
+        with patch("quill.summarizer.httpx.post", side_effect=mock_side_effect):
             summarizer = Summarizer(
                 ollama_url="http://localhost:11434", model="gemma2:9b", timeout=10
             )
@@ -510,7 +510,7 @@ class TestFileContentStructure:
             return_value=httpx.Response(200, json={"response": "summary", "done": True})
         )
 
-        with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+        with patch("quill.live_transcriber.WhisperModel") as MockModel:
             seg = MagicMock()
             seg.text = " test text"
             MockModel.return_value.transcribe.return_value = ([seg], MagicMock())
@@ -559,7 +559,7 @@ class TestMultipleChunksOrder:
             return_value=httpx.Response(200, json={"response": "summary", "done": True})
         )
 
-        with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+        with patch("quill.live_transcriber.WhisperModel") as MockModel:
             chunk_num = [0]
 
             def fake_transcribe(audio, **kwargs):
@@ -628,7 +628,7 @@ class TestRapidStartAfterStop:
 
         paths = []
         for session_num in range(2):
-            with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+            with patch("quill.live_transcriber.WhisperModel") as MockModel:
                 seg = MagicMock()
                 seg.text = f" session{session_num + 1}"
                 MockModel.return_value.transcribe.return_value = ([seg], MagicMock())
@@ -690,7 +690,7 @@ class TestFasterWhisperMidStreamError:
             )
         )
 
-        with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+        with patch("quill.live_transcriber.WhisperModel") as MockModel:
             call_count = [0]
 
             def flaky_transcribe(audio, **kwargs):
@@ -747,7 +747,7 @@ class TestFasterWhisperMidStreamError:
 
     def test_all_chunks_fail_produces_empty_transcript(self, notes_dir):
         """Every chunk raises -> empty transcript -> '(no speech detected)'."""
-        with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+        with patch("quill.live_transcriber.WhisperModel") as MockModel:
             MockModel.return_value.transcribe.side_effect = RuntimeError("always fails")
 
             transcriber = LiveTranscriber(model_name="base")
@@ -803,18 +803,20 @@ class TestAppStateMachineLive:
         cfg = Config()
         cfg.notes_dir = tmp_path / "Notes"
         cfg.notes_dir.mkdir()
+        cfg.enable_transcription = True
+        cfg.enable_summarization = True
 
-        with patch("whisper_notes.app.Recorder"), \
-             patch("whisper_notes.app.Transcriber"), \
-             patch("whisper_notes.app.Summarizer"), \
-             patch("whisper_notes.app.NoteWriter") as MockWriter, \
-             patch("whisper_notes.app.LiveRecorder"), \
-             patch("whisper_notes.app.LiveTranscriber"), \
-             patch("whisper_notes.app.LiveTranscriberThread"), \
-             patch("whisper_notes.app.subprocess"), \
-             patch("whisper_notes.app.MenuBarButton"):
+        with patch("quill.app.Recorder"), \
+             patch("quill.app.Transcriber"), \
+             patch("quill.app.Summarizer"), \
+             patch("quill.app.NoteWriter") as MockWriter, \
+             patch("quill.app.LiveRecorder"), \
+             patch("quill.app.LiveTranscriber"), \
+             patch("quill.app.LiveTranscriberThread"), \
+             patch("quill.app.subprocess"), \
+             patch("quill.app.MenuBarButton"):
             MockWriter.return_value.notes_dir = cfg.notes_dir
-            app = app_module.WhisperNotesApp(cfg)
+            app = app_module.QuillApp(cfg)
 
             # idle
             assert app.state == "idle"
@@ -843,18 +845,19 @@ class TestAppStateMachineLive:
         cfg = Config()
         cfg.notes_dir = tmp_path / "Notes"
         cfg.notes_dir.mkdir()
+        cfg.enable_transcription = True
 
-        with patch("whisper_notes.app.Recorder"), \
-             patch("whisper_notes.app.Transcriber"), \
-             patch("whisper_notes.app.Summarizer"), \
-             patch("whisper_notes.app.NoteWriter") as MockWriter, \
-             patch("whisper_notes.app.LiveRecorder"), \
-             patch("whisper_notes.app.LiveTranscriber"), \
-             patch("whisper_notes.app.LiveTranscriberThread"), \
-             patch("whisper_notes.app.subprocess"), \
-             patch("whisper_notes.app.MenuBarButton"):
+        with patch("quill.app.Recorder"), \
+             patch("quill.app.Transcriber"), \
+             patch("quill.app.Summarizer"), \
+             patch("quill.app.NoteWriter") as MockWriter, \
+             patch("quill.app.LiveRecorder"), \
+             patch("quill.app.LiveTranscriber"), \
+             patch("quill.app.LiveTranscriberThread"), \
+             patch("quill.app.subprocess"), \
+             patch("quill.app.MenuBarButton"):
             MockWriter.return_value.notes_dir = cfg.notes_dir
-            app = app_module.WhisperNotesApp(cfg)
+            app = app_module.QuillApp(cfg)
             app.state = "idle"
             app._on_stop_live(None)
             assert app.state == "idle"
@@ -877,7 +880,7 @@ class TestPartialBufferOnStop:
             return_value=httpx.Response(200, json={"response": "summary", "done": True})
         )
 
-        with patch("whisper_notes.live_transcriber.WhisperModel") as MockModel:
+        with patch("quill.live_transcriber.WhisperModel") as MockModel:
             seg = MagicMock()
             seg.text = " partial audio"
             MockModel.return_value.transcribe.return_value = ([seg], MagicMock())

@@ -10,7 +10,7 @@
 6. [Text Injection into Focused App](#6-text-injection-into-focused-app)
 7. [Similar Tools Comparison](#7-similar-tools-comparison)
 8. [Accessibility Permissions](#8-accessibility-permissions)
-9. [Recommended Architecture for whisper-notes](#9-recommended-architecture-for-whisper-notes)
+9. [Recommended Architecture for quill](#9-recommended-architecture-for-quill)
 
 ---
 
@@ -517,9 +517,9 @@ macOS does not provide a programmatic API to request Accessibility or Input Moni
 
 ---
 
-## 9. Recommended Architecture for whisper-notes
+## 9. Recommended Architecture for quill
 
-Based on this research, here is the recommended architecture for implementing push-to-talk dictation in whisper-notes:
+Based on this research, here is the recommended architecture for implementing push-to-talk dictation in quill:
 
 ### Technology Stack
 

@@ -9,15 +9,18 @@ class TranscriptionError(RuntimeError):
 
 
 class Transcriber:
-    def __init__(self, model_name: str = "base"):
+    def __init__(self, model_name: str = "base", download_root: str | None = None):
         self.model_name = model_name
+        self._download_root = download_root
         self._model = None
         self._lock = threading.Lock()
 
     def _load_model(self):
         with self._lock:
             if self._model is None:
-                self._model = whisper.load_model(self.model_name)
+                self._model = whisper.load_model(
+                    self.model_name, download_root=self._download_root
+                )
 
     def transcribe(self, audio_path: Path) -> str:
         audio_path = Path(audio_path)

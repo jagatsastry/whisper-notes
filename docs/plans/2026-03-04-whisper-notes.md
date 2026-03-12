@@ -1,4 +1,4 @@
-# Whisper Notes Implementation Plan
+# Quill Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -26,7 +26,7 @@ ollama list                # should show gemma2:9b
 
 **Files:**
 - Create: `pyproject.toml`
-- Create: `whisper_notes/__init__.py`
+- Create: `quill/__init__.py`
 - Create: `tests/__init__.py`
 - Create: `tests/conftest.py`
 - Create: `.gitignore`
@@ -35,7 +35,7 @@ ollama list                # should show gemma2:9b
 
 ```toml
 [project]
-name = "whisper-notes"
+name = "quill"
 version = "0.1.0"
 description = "macOS menu bar voice notetaking with local Whisper + Ollama"
 requires-python = ">=3.11"
@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 [project.scripts]
-whisper-notes = "whisper_notes.app:main"
+quill = "quill.app:main"
 
 [dependency-groups]
 dev = [
@@ -71,7 +71,7 @@ testpaths = ["tests"]
 
 **Step 2: Create package and test scaffolding**
 
-`whisper_notes/__init__.py` — empty file.
+`quill/__init__.py` — empty file.
 
 `tests/__init__.py` — empty file.
 
@@ -140,7 +140,7 @@ Expected: `OK`
 **Step 7: Commit**
 
 ```bash
-git add pyproject.toml whisper_notes/ tests/ .gitignore
+git add pyproject.toml quill/ tests/ .gitignore
 git commit -m "feat: project scaffold with dependencies"
 ```
 
@@ -149,7 +149,7 @@ git commit -m "feat: project scaffold with dependencies"
 ### Task 2: `config.py` — Configuration with env var overrides
 
 **Files:**
-- Create: `whisper_notes/config.py`
+- Create: `quill/config.py`
 - Create: `tests/test_config.py`
 
 **Step 1: Write failing tests**
@@ -158,7 +158,7 @@ git commit -m "feat: project scaffold with dependencies"
 ```python
 import pytest
 import os
-from whisper_notes.config import Config, ConfigError
+from quill.config import Config, ConfigError
 
 
 def test_defaults():
@@ -207,9 +207,9 @@ def test_tilde_expansion():
 ```bash
 pytest tests/test_config.py -v
 ```
-Expected: FAIL — `ModuleNotFoundError: No module named 'whisper_notes.config'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'quill.config'`
 
-**Step 3: Implement `whisper_notes/config.py`**
+**Step 3: Implement `quill/config.py`**
 
 ```python
 import os
@@ -249,7 +249,7 @@ Expected: all PASS
 **Step 5: Commit**
 
 ```bash
-git add whisper_notes/config.py tests/test_config.py
+git add quill/config.py tests/test_config.py
 git commit -m "feat: config with env var overrides and validation"
 ```
 
@@ -258,7 +258,7 @@ git commit -m "feat: config with env var overrides and validation"
 ### Task 3: `note_writer.py` — Write markdown notes to disk
 
 **Files:**
-- Create: `whisper_notes/note_writer.py`
+- Create: `quill/note_writer.py`
 - Create: `tests/test_note_writer.py`
 
 **Step 1: Write failing tests**
@@ -269,7 +269,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import patch
-from whisper_notes.note_writer import NoteWriter, NoteWriteError
+from quill.note_writer import NoteWriter, NoteWriteError
 
 
 def test_writes_both_sections(tmp_notes_dir):
@@ -365,7 +365,7 @@ pytest tests/test_note_writer.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError`
 
-**Step 3: Implement `whisper_notes/note_writer.py`**
+**Step 3: Implement `quill/note_writer.py`**
 
 ```python
 from datetime import datetime
@@ -440,7 +440,7 @@ Expected: all PASS
 **Step 5: Commit**
 
 ```bash
-git add whisper_notes/note_writer.py tests/test_note_writer.py
+git add quill/note_writer.py tests/test_note_writer.py
 git commit -m "feat: note writer with markdown output and collision handling"
 ```
 
@@ -449,7 +449,7 @@ git commit -m "feat: note writer with markdown output and collision handling"
 ### Task 4: `summarizer.py` — Ollama HTTP client
 
 **Files:**
-- Create: `whisper_notes/summarizer.py`
+- Create: `quill/summarizer.py`
 - Create: `tests/test_summarizer.py`
 
 **Step 1: Write failing tests**
@@ -459,7 +459,7 @@ git commit -m "feat: note writer with markdown output and collision handling"
 import pytest
 import httpx
 from unittest.mock import MagicMock, patch
-from whisper_notes.summarizer import Summarizer, SummarizerError
+from quill.summarizer import Summarizer, SummarizerError
 
 OLLAMA_URL = "http://localhost:11434"
 MODEL = "gemma2:9b"
@@ -551,7 +551,7 @@ pytest tests/test_summarizer.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError`
 
-**Step 4: Implement `whisper_notes/summarizer.py`**
+**Step 4: Implement `quill/summarizer.py`**
 
 ```python
 import httpx
@@ -617,7 +617,7 @@ Expected: all PASS
 **Step 6: Commit**
 
 ```bash
-git add whisper_notes/summarizer.py tests/test_summarizer.py pyproject.toml uv.lock
+git add quill/summarizer.py tests/test_summarizer.py pyproject.toml uv.lock
 git commit -m "feat: ollama summarizer with error handling and truncation"
 ```
 
@@ -626,7 +626,7 @@ git commit -m "feat: ollama summarizer with error handling and truncation"
 ### Task 5: `transcriber.py` — Whisper wrapper
 
 **Files:**
-- Create: `whisper_notes/transcriber.py`
+- Create: `quill/transcriber.py`
 - Create: `tests/test_transcriber.py`
 
 **Step 1: Write failing tests**
@@ -636,13 +636,13 @@ git commit -m "feat: ollama summarizer with error handling and truncation"
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from whisper_notes.transcriber import Transcriber, TranscriptionError
+from quill.transcriber import Transcriber, TranscriptionError
 
 
 @pytest.fixture
 def mock_whisper_model():
     """Patch whisper.load_model to avoid downloading real models in tests."""
-    with patch("whisper_notes.transcriber.whisper") as mock_whisper:
+    with patch("quill.transcriber.whisper") as mock_whisper:
         mock_model = MagicMock()
         mock_whisper.load_model.return_value = mock_model
         yield mock_whisper, mock_model
@@ -702,7 +702,7 @@ pytest tests/test_transcriber.py -v
 ```
 Expected: FAIL
 
-**Step 3: Implement `whisper_notes/transcriber.py`**
+**Step 3: Implement `quill/transcriber.py`**
 
 ```python
 from pathlib import Path
@@ -744,7 +744,7 @@ Expected: all PASS
 **Step 5: Commit**
 
 ```bash
-git add whisper_notes/transcriber.py tests/test_transcriber.py
+git add quill/transcriber.py tests/test_transcriber.py
 git commit -m "feat: whisper transcriber with lazy model loading"
 ```
 
@@ -753,7 +753,7 @@ git commit -m "feat: whisper transcriber with lazy model loading"
 ### Task 6: `recorder.py` — Audio capture
 
 **Files:**
-- Create: `whisper_notes/recorder.py`
+- Create: `quill/recorder.py`
 - Create: `tests/test_recorder.py`
 
 **Step 1: Write failing tests**
@@ -764,18 +764,18 @@ import pytest
 import numpy as np
 from pathlib import Path
 from unittest.mock import patch, MagicMock, call
-from whisper_notes.recorder import Recorder, RecordingError
+from quill.recorder import Recorder, RecordingError
 
 
 @pytest.fixture
 def mock_sounddevice():
-    with patch("whisper_notes.recorder.sd") as mock_sd:
+    with patch("quill.recorder.sd") as mock_sd:
         yield mock_sd
 
 
 @pytest.fixture
 def mock_wavfile():
-    with patch("whisper_notes.recorder.wavfile") as mock_wf:
+    with patch("quill.recorder.wavfile") as mock_wf:
         yield mock_wf
 
 
@@ -832,7 +832,7 @@ pytest tests/test_recorder.py -v
 ```
 Expected: FAIL
 
-**Step 3: Implement `whisper_notes/recorder.py`**
+**Step 3: Implement `quill/recorder.py`**
 
 Note: `sounddevice` records a fixed-duration buffer with `sd.rec()`. For open-ended recording (stop when user says stop), we use a large max-duration buffer (10 minutes) and slice the actual recorded portion on stop.
 
@@ -901,7 +901,7 @@ Expected: all PASS
 **Step 5: Commit**
 
 ```bash
-git add whisper_notes/recorder.py tests/test_recorder.py
+git add quill/recorder.py tests/test_recorder.py
 git commit -m "feat: audio recorder with start/stop and WAV export"
 ```
 
@@ -927,15 +927,15 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 import httpx
 
-from whisper_notes.config import Config
-from whisper_notes.transcriber import Transcriber
-from whisper_notes.summarizer import Summarizer
-from whisper_notes.note_writer import NoteWriter
+from quill.config import Config
+from quill.transcriber import Transcriber
+from quill.summarizer import Summarizer
+from quill.note_writer import NoteWriter
 
 
 @pytest.fixture
 def mock_transcriber(fixtures_dir):
-    with patch("whisper_notes.transcriber.whisper") as mock_whisper:
+    with patch("quill.transcriber.whisper") as mock_whisper:
         mock_model = MagicMock()
         mock_model.transcribe.return_value = {"text": " This is a test note about the team meeting."}
         mock_whisper.load_model.return_value = mock_model
@@ -973,7 +973,7 @@ def test_full_pipeline_with_ollama(mock_transcriber, tmp_notes_dir, respx_mock, 
 
 def test_full_pipeline_ollama_offline(mock_transcriber, tmp_notes_dir, fixtures_dir):
     """When Ollama is unreachable, raw transcript is still saved."""
-    from whisper_notes.summarizer import SummarizerError
+    from quill.summarizer import SummarizerError
 
     summarizer = Summarizer(ollama_url="http://localhost:1", model="gemma2:9b", timeout=1)
     writer = NoteWriter(notes_dir=tmp_notes_dir)
@@ -1041,7 +1041,7 @@ git commit -m "test: integration tests for full transcribe → summarize → sav
 ### Task 8: `app.py` — Menu bar application
 
 **Files:**
-- Create: `whisper_notes/app.py`
+- Create: `quill/app.py`
 - Create: `tests/test_app.py`
 
 **Step 1: Write failing tests**
@@ -1054,7 +1054,7 @@ We test state machine transitions and that the right methods get called.
 """
 import pytest
 from unittest.mock import patch, MagicMock, call
-from whisper_notes.config import Config
+from quill.config import Config
 
 
 @pytest.fixture
@@ -1064,7 +1064,7 @@ def mock_rumps():
         "rumps.App": MagicMock(),
     }):
         import importlib
-        import whisper_notes.app as app_module
+        import quill.app as app_module
         importlib.reload(app_module)
         yield app_module
 
@@ -1072,22 +1072,22 @@ def mock_rumps():
 def test_app_initializes_in_idle_state(mock_rumps, tmp_notes_dir):
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"):
-        app = mock_rumps.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"):
+        app = mock_rumps.QuillApp(cfg)
         assert app.state == "idle"
 
 
 def test_start_recording_changes_state(mock_rumps, tmp_notes_dir):
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder") as MockRecorder, \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"):
-        app = mock_rumps.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder") as MockRecorder, \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"):
+        app = mock_rumps.QuillApp(cfg)
         app._on_start_recording(None)
         assert app.state == "recording"
         MockRecorder.return_value.start.assert_called_once()
@@ -1096,12 +1096,12 @@ def test_start_recording_changes_state(mock_rumps, tmp_notes_dir):
 def test_stop_recording_triggers_pipeline(mock_rumps, tmp_notes_dir):
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder") as MockRecorder, \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
+    with patch("quill.app.Recorder") as MockRecorder, \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
          patch("threading.Thread") as MockThread:
-        app = mock_rumps.WhisperNotesApp(cfg)
+        app = mock_rumps.QuillApp(cfg)
         app.state = "recording"
         app._on_stop_recording(None)
         MockThread.assert_called_once()
@@ -1115,7 +1115,7 @@ pytest tests/test_app.py -v
 ```
 Expected: FAIL
 
-**Step 3: Implement `whisper_notes/app.py`**
+**Step 3: Implement `quill/app.py`**
 
 ```python
 import threading
@@ -1125,11 +1125,11 @@ from pathlib import Path
 
 import rumps
 
-from whisper_notes.config import Config
-from whisper_notes.recorder import Recorder, RecordingError
-from whisper_notes.transcriber import Transcriber, TranscriptionError
-from whisper_notes.summarizer import Summarizer, SummarizerError
-from whisper_notes.note_writer import NoteWriter, NoteWriteError
+from quill.config import Config
+from quill.recorder import Recorder, RecordingError
+from quill.transcriber import Transcriber, TranscriptionError
+from quill.summarizer import Summarizer, SummarizerError
+from quill.note_writer import NoteWriter, NoteWriteError
 
 ICONS = {
     "idle": "🎙",
@@ -1139,9 +1139,9 @@ ICONS = {
 }
 
 
-class WhisperNotesApp(rumps.App):
+class QuillApp(rumps.App):
     def __init__(self, config: Config):
-        super().__init__(f"{ICONS['idle']} Whisper Notes", quit_button=None)
+        super().__init__(f"{ICONS['idle']} Quill", quit_button=None)
         self.config = config
         self.state = "idle"
         self.recorder = Recorder()
@@ -1205,7 +1205,7 @@ class WhisperNotesApp(rumps.App):
             try:
                 summary = self.summarizer.summarize(transcript)
             except SummarizerError as e:
-                rumps.notification("Whisper Notes", "Ollama unavailable", "Saving raw transcript only.")
+                rumps.notification("Quill", "Ollama unavailable", "Saving raw transcript only.")
 
             self._set_state("processing", "Saving...")
             path = self.writer.write(
@@ -1224,7 +1224,7 @@ class WhisperNotesApp(rumps.App):
             self._reset_to_idle()
 
     def _reset_to_idle(self):
-        self._set_state("idle", "Whisper Notes")
+        self._set_state("idle", "Quill")
         self._start_btn.set_callback(self._on_start_recording)
         self._stop_btn.set_callback(None)
 
@@ -1234,12 +1234,12 @@ class WhisperNotesApp(rumps.App):
         subprocess.Popen(["open", str(self.config.notes_dir)])
 
     def _notify(self, title: str, message: str):
-        rumps.notification("Whisper Notes", title, message)
+        rumps.notification("Quill", title, message)
 
 
 def main():
     config = Config()
-    WhisperNotesApp(config).run()
+    QuillApp(config).run()
 
 
 if __name__ == "__main__":
@@ -1257,7 +1257,7 @@ Expected: all PASS
 **Step 5: Commit**
 
 ```bash
-git add whisper_notes/app.py tests/test_app.py
+git add quill/app.py tests/test_app.py
 git commit -m "feat: rumps menu bar app with recording state machine"
 ```
 
@@ -1272,7 +1272,7 @@ git commit -m "feat: rumps menu bar app with recording state machine"
 **Step 1: Create README.md**
 
 ```markdown
-# whisper-notes
+# quill
 
 macOS menu bar app for voice notetaking. Records locally, transcribes with [OpenAI Whisper](https://github.com/openai/whisper), summarizes with [Ollama](https://ollama.ai), saves to `~/Notes/` as markdown.
 
@@ -1287,8 +1287,8 @@ macOS menu bar app for voice notetaking. Records locally, transcribes with [Open
 ## Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/whisper-notes
-cd whisper-notes
+git clone https://github.com/YOUR_USERNAME/quill
+cd quill
 uv venv && source .venv/bin/activate
 uv sync
 ```
@@ -1296,12 +1296,12 @@ uv sync
 ## Run
 
 ```bash
-whisper-notes
+quill
 # or
-python -m whisper_notes.app
+python -m quill.app
 ```
 
-The app appears in your macOS menu bar as 🎙 Whisper Notes.
+The app appears in your macOS menu bar as 🎙 Quill.
 
 ## Configure
 
@@ -1354,7 +1354,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv venv && uv sync --group dev
       - run: uv run pytest -v
-      - run: uv run ruff check whisper_notes/ tests/
+      - run: uv run ruff check quill/ tests/
 ```
 
 **Step 3: Commit**
@@ -1368,7 +1368,7 @@ git commit -m "docs: readme and CI workflow"
 **Step 4: Create GitHub repo and push**
 
 ```bash
-gh repo create whisper-notes --public --description "macOS menu bar voice notetaking with local Whisper + Ollama" --source=. --remote=origin --push
+gh repo create quill --public --description "macOS menu bar voice notetaking with local Whisper + Ollama" --source=. --remote=origin --push
 ```
 
 ---
@@ -1385,7 +1385,7 @@ Expected: all tests PASS, 0 failures
 **Step 2: Run linter**
 
 ```bash
-ruff check whisper_notes/ tests/
+ruff check quill/ tests/
 ```
 Expected: no issues
 
@@ -1393,9 +1393,9 @@ Expected: no issues
 
 ```bash
 source .venv/bin/activate
-whisper-notes
+quill
 ```
-Expected: 🎙 Whisper Notes appears in menu bar. Click Start Recording, speak, click Stop Recording, note appears in `~/Notes/`.
+Expected: 🎙 Quill appears in menu bar. Click Start Recording, speak, click Stop Recording, note appears in `~/Notes/`.
 
 **Step 4: Final commit if any fixes needed**
 

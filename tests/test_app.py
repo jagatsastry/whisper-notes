@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from whisper_notes.config import Config
-from whisper_notes.dictator import DictationError as _RealDictationError
-from whisper_notes.recorder import RecordingError as _RealRecordingError
+from quill.config import Config
+from quill.dictator import DictationError as _RealDictationError
+from quill.recorder import RecordingError as _RealRecordingError
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def mock_rumps():
     rumps_mock = MagicMock()
     rumps_mock.App = MagicMock
 
-    # Mock all whisper_notes sub-modules that app.py imports so that numpy
+    # Mock all quill sub-modules that app.py imports so that numpy
     # (a C extension) is never reloaded — C extensions cannot be loaded twice
     # in a single process.
     dictator_mock = MagicMock()
@@ -28,42 +28,42 @@ def mock_rumps():
         "rumps": rumps_mock,
         "objc": MagicMock(),
         "AppKit": MagicMock(),
-        "whisper_notes.recorder": MagicMock(),
-        "whisper_notes.transcriber": MagicMock(),
-        "whisper_notes.summarizer": MagicMock(),
-        "whisper_notes.note_writer": MagicMock(),
-        "whisper_notes.live_transcriber": MagicMock(),
-        "whisper_notes.live_recorder": MagicMock(),
-        "whisper_notes.live_window": MagicMock(),
-        "whisper_notes.dictator": dictator_mock,
+        "quill.recorder": MagicMock(),
+        "quill.transcriber": MagicMock(),
+        "quill.summarizer": MagicMock(),
+        "quill.note_writer": MagicMock(),
+        "quill.live_transcriber": MagicMock(),
+        "quill.live_recorder": MagicMock(),
+        "quill.live_window": MagicMock(),
+        "quill.dictator": dictator_mock,
     }
 
     with patch.dict("sys.modules", sub_mocks):
         # Force reload so app.py picks up the mocked rumps
-        if "whisper_notes.app" in sys.modules:
-            del sys.modules["whisper_notes.app"]
-        import whisper_notes.app as app_module
+        if "quill.app" in sys.modules:
+            del sys.modules["quill.app"]
+        import quill.app as app_module
         yield app_module, rumps_mock
 
 
 LIVE_PATCHES = [
-    "whisper_notes.app.LiveRecorder",
-    "whisper_notes.app.LiveTranscriber",
-    "whisper_notes.app.LiveTranscriberThread",
+    "quill.app.LiveRecorder",
+    "quill.app.LiveTranscriber",
+    "quill.app.LiveTranscriberThread",
 ]
 
 DICTATION_PATCHES = [
-    "whisper_notes.app.Dictator",
+    "quill.app.Dictator",
 ]
 
 
 def _patch_all(extra_patches=None):
     """Return a list of patch context managers for all app dependencies."""
     base = [
-        "whisper_notes.app.Recorder",
-        "whisper_notes.app.Transcriber",
-        "whisper_notes.app.Summarizer",
-        "whisper_notes.app.NoteWriter",
+        "quill.app.Recorder",
+        "quill.app.Transcriber",
+        "quill.app.Summarizer",
+        "quill.app.NoteWriter",
     ] + LIVE_PATCHES + DICTATION_PATCHES
     if extra_patches:
         base.extend(extra_patches)
@@ -71,17 +71,17 @@ def _patch_all(extra_patches=None):
 
 
 def _make_app(app_module, cfg, extra_patches=None):
-    """Helper to create WhisperNotesApp with all dependencies patched."""
+    """Helper to create QuillApp with all dependencies patched."""
     patches = [
-        "whisper_notes.app.Recorder",
-        "whisper_notes.app.Transcriber",
-        "whisper_notes.app.Summarizer",
-        "whisper_notes.app.NoteWriter",
-        "whisper_notes.app.LiveRecorder",
-        "whisper_notes.app.LiveTranscriber",
-        "whisper_notes.app.LiveTranscriberThread",
-        "whisper_notes.app.Dictator",
-        "whisper_notes.app.DictationError",
+        "quill.app.Recorder",
+        "quill.app.Transcriber",
+        "quill.app.Summarizer",
+        "quill.app.NoteWriter",
+        "quill.app.LiveRecorder",
+        "quill.app.LiveTranscriber",
+        "quill.app.LiveTranscriberThread",
+        "quill.app.Dictator",
+        "quill.app.DictationError",
     ]
     if extra_patches:
         patches.extend(extra_patches)
@@ -92,33 +92,46 @@ def test_app_initializes_in_idle_state(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"):
-        app = app_module.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"):
+        app = app_module.QuillApp(cfg)
         assert app.state == "idle"
+
+
+def test_app_dictation_only_menu_by_default(mock_rumps, tmp_notes_dir):
+    """With default config (transcription disabled), only dictation + quit are shown."""
+    app_module, _ = mock_rumps
+    cfg = Config()
+    cfg.notes_dir = tmp_notes_dir
+    with patch("quill.app.Dictator"):
+        app = app_module.QuillApp(cfg)
+        assert hasattr(app, "_dictation_btn")
+        assert not hasattr(app, "_start_btn")
+        assert not hasattr(app, "_live_btn")
 
 
 def test_start_recording_changes_state(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder") as MockRecorder, \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"), \
-         patch("whisper_notes.app.DictationError"), \
-         patch("whisper_notes.app.MenuBarButton"):
-        app = app_module.WhisperNotesApp(cfg)
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder") as MockRecorder, \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"), \
+         patch("quill.app.DictationError"), \
+         patch("quill.app.MenuBarButton"):
+        app = app_module.QuillApp(cfg)
         app._on_start_recording(None)
         assert app.state == "recording"
         MockRecorder.return_value.start.assert_called_once()
@@ -129,17 +142,18 @@ def test_start_recording_error_preserves_idle_state(mock_rumps, tmp_notes_dir):
     app_module, rumps_mock = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder") as MockRecorder, \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.RecordingError", _RealRecordingError), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"):
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder") as MockRecorder, \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.RecordingError", _RealRecordingError), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"):
         MockRecorder.return_value.start.side_effect = _RealRecordingError("no mic")
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         app._on_start_recording(None)
         assert app.state == "idle"
 
@@ -148,17 +162,18 @@ def test_stop_recording_triggers_pipeline(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"), \
-         patch("whisper_notes.app.DictationError"), \
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"), \
+         patch("quill.app.DictationError"), \
          patch("threading.Thread") as MockThread:
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         MockThread.reset_mock()  # clear pre-warm call from __init__
         app.state = "recording"
         app._on_stop_recording(None)
@@ -170,19 +185,20 @@ def test_live_transcribe_changes_state(mock_rumps, tmp_notes_dir):
     app_module, rumps_mock = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter") as MockWriter, \
-         patch("whisper_notes.app.LiveRecorder") as MockLiveRecorder, \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"), \
-         patch("whisper_notes.app.DictationError"), \
-         patch("whisper_notes.app.subprocess"), \
-         patch("whisper_notes.app.MenuBarButton"):
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter") as MockWriter, \
+         patch("quill.app.LiveRecorder") as MockLiveRecorder, \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"), \
+         patch("quill.app.DictationError"), \
+         patch("quill.app.subprocess"), \
+         patch("quill.app.MenuBarButton"):
         MockWriter.return_value.notes_dir = tmp_notes_dir
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         app._on_live_transcribe(None)
         assert app.state == "live"
         MockLiveRecorder.return_value.start.assert_called_once()
@@ -192,17 +208,18 @@ def test_stop_live_triggers_finish(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"), \
-         patch("whisper_notes.app.DictationError"), \
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"), \
+         patch("quill.app.DictationError"), \
          patch("threading.Thread") as MockThread:
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         app.state = "live"
         app._live_pump_timer = MagicMock()
         app._on_stop_live(None)
@@ -214,15 +231,16 @@ def test_stop_live_noop_if_not_live(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"):
-        app = app_module.WhisperNotesApp(cfg)
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"):
+        app = app_module.QuillApp(cfg)
         app.state = "idle"
         app._on_stop_live(None)
         assert app.state == "idle"
@@ -232,15 +250,16 @@ def test_idle_state_has_live_btn_enabled(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"):
-        app = app_module.WhisperNotesApp(cfg)
+    cfg.enable_transcription = True
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"):
+        app = app_module.QuillApp(cfg)
         # _live_btn should have callback set in idle state
         assert hasattr(app, "_live_btn")
         assert hasattr(app, "_stop_live_btn")
@@ -253,15 +272,15 @@ def test_enable_dictation_changes_state(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator") as MockDictator:
-        app = app_module.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator") as MockDictator:
+        app = app_module.QuillApp(cfg)
         app._on_enable_dictation(None)
         assert app.state == "dictation"
         MockDictator.return_value.start.assert_called_once()
@@ -271,15 +290,15 @@ def test_disable_dictation_returns_to_idle(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator") as MockDictator:
-        app = app_module.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator") as MockDictator:
+        app = app_module.QuillApp(cfg)
         app._on_enable_dictation(None)
         assert app.state == "dictation"
         # Now disable
@@ -292,15 +311,15 @@ def test_dictation_menu_item_exists(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator"):
-        app = app_module.WhisperNotesApp(cfg)
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator"):
+        app = app_module.QuillApp(cfg)
         assert hasattr(app, "_dictation_btn")
 
 
@@ -308,16 +327,16 @@ def test_dictation_error_shows_notification(mock_rumps, tmp_notes_dir):
     app_module, _ = mock_rumps
     cfg = Config()
     cfg.notes_dir = tmp_notes_dir
-    with patch("whisper_notes.app.Recorder"), \
-         patch("whisper_notes.app.Transcriber"), \
-         patch("whisper_notes.app.Summarizer"), \
-         patch("whisper_notes.app.NoteWriter"), \
-         patch("whisper_notes.app.LiveRecorder"), \
-         patch("whisper_notes.app.LiveTranscriber"), \
-         patch("whisper_notes.app.LiveTranscriberThread"), \
-         patch("whisper_notes.app.Dictator") as MockDictator:
+    with patch("quill.app.Recorder"), \
+         patch("quill.app.Transcriber"), \
+         patch("quill.app.Summarizer"), \
+         patch("quill.app.NoteWriter"), \
+         patch("quill.app.LiveRecorder"), \
+         patch("quill.app.LiveTranscriber"), \
+         patch("quill.app.LiveTranscriberThread"), \
+         patch("quill.app.Dictator") as MockDictator:
         MockDictator.return_value.start.side_effect = _RealDictationError("test error")
-        app = app_module.WhisperNotesApp(cfg)
+        app = app_module.QuillApp(cfg)
         app._on_enable_dictation(None)
         # Should remain idle since Dictator.start() raised
         assert app.state == "idle"

@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from whisper_notes.note_writer import NoteWriteError, NoteWriter
+from quill.note_writer import NoteWriteError, NoteWriter
 
 
 def test_writes_both_sections(tmp_notes_dir):
