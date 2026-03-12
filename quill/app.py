@@ -66,9 +66,10 @@ class QuillApp(rumps.App):
         # --- Transcription components (behind feature flag) ---
         if config.enable_transcription:
             self.recorder = Recorder()
+            dl_root = str(config.whisper_download_root) if config.whisper_download_root else None
             self.transcriber = Transcriber(
                 model_name=config.whisper_model,
-                download_root=str(config.whisper_download_root) if config.whisper_download_root else None,
+                download_root=dl_root,
             )
             threading.Thread(target=self.transcriber._load_model, daemon=True).start()
             self.writer = NoteWriter(notes_dir=config.notes_dir)
