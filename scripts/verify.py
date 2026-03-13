@@ -1,261 +1,181 @@
 #!/usr/bin/env python3
 """
-Verify quill works end-to-end with real components.
+Verify Quill is running correctly as a menu bar dictation app.
 
 Usage:
-    .venv/bin/python scripts/verify.py           # all checks
-    .venv/bin/python scripts/verify.py --record  # Record Note pipeline only
-    .venv/bin/python scripts/verify.py --live     # Live Transcribe pipeline only
-    .venv/bin/python scripts/verify.py --env      # environment checks only
+    uv run python scripts/verify.py          # check running app
+    uv run python scripts/verify.py --all    # include tests + lint
 """
 import argparse
+import os
+import subprocess
 import sys
-import tempfile
 import time
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import numpy as np
+# Ensure project root is importable
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+PASS = "\033[92m✓\033[0m"
+FAIL = "\033[91m✗\033[0m"
+WARN = "\033[93m⚠\033[0m"
+results: list[tuple[str, bool]] = []
 
 
-def ok(msg): print(f"  ✓ {msg}")
-def fail(msg): print(f"  ✗ {msg}"); sys.exit(1)
-def section(title): print(f"\n=== {title} ===")
+def check(name, passed, detail=""):
+    results.append((name, passed))
+    mark = PASS if passed else FAIL
+    msg = f"  {mark} {name}"
+    if detail:
+        msg += f"  ({detail})"
+    print(msg)
+    return passed
 
 
-def check_env():
-    section("Environment")
+def run(cmd, timeout=10, **kwargs):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kwargs)
 
-    import tkinter as tk
-    try:
-        root = tk.Tk()
-        root.after(200, root.destroy)
-        root.mainloop()
-        ok(f"tkinter {tk.TkVersion}")
-    except Exception as e:
-        fail(f"tkinter broken: {e}")
 
-    import sounddevice as sd
-    try:
-        devices = sd.query_devices()
-        ok(f"sounddevice — {len(devices)} devices")
-    except Exception as e:
-        fail(f"sounddevice: {e}")
+def osascript(script):
+    return run(["osascript", "-e", script])
 
+
+def check_process():
+    print("\n=== Process ===")
+    ps = run(["pgrep", "-f", "from quill.app import main"])
+    pids = [p for p in ps.stdout.strip().split("\n") if p]
+    check("App process running", len(pids) > 0, f"PIDs: {pids}" if pids else "not found")
+
+    result = osascript(
+        'tell application "System Events" to return name of every process '
+        "whose visible is true"
+    )
+    in_dock = "Python" in result.stdout
+    check("Python NOT in Dock", not in_dock)
+
+
+def check_menu_bar():
+    print("\n=== Menu Bar ===")
+    result = osascript(
+        'tell application "System Events"\n'
+        '  tell process "Python"\n'
+        '    return title of every menu bar item of menu bar 1\n'
+        "  end tell\n"
+        "end tell"
+    )
+    has_menu = "Quill" in result.stdout
+    check("Menu bar shows Quill", has_menu, result.stdout.strip() or result.stderr.strip())
+
+    if not has_menu:
+        print(f"  {WARN} Skipping menu content checks (no menu bar item)")
+        return
+
+    result = osascript(
+        'tell application "System Events"\n'
+        '  tell process "Python"\n'
+        "    return name of every menu item of menu 1 "
+        "of menu bar item 1 of menu bar 1\n"
+        "  end tell\n"
+        "end tell"
+    )
+    items = result.stdout.strip()
+    check("Menu has 'Enable Dictation'", "Dictation" in items, items)
+    check("Menu has 'Quit'", "Quit" in items)
+    check("Menu hides 'Start Recording' (flag off)", "Start Recording" not in items)
+    check("Menu hides 'Live Transcribe' (flag off)", "Live Transcribe" not in items)
+
+
+def check_screenshot():
+    print("\n=== Screenshot ===")
+    screenshot = "/tmp/quill-verify-menubar.png"
+    run(["screencapture", "-x", screenshot, "-R", "0,0,2560,40"])
+    exists = Path(screenshot).exists()
+    check("Menu bar screenshot saved", exists, screenshot)
+
+
+def check_config():
+    print("\n=== Config ===")
+    result = run(
+        [
+            sys.executable,
+            "-c",
+            "from quill.config import Config; c = Config(); "
+            "assert c.enable_transcription is False, 'transcription should be off'; "
+            "assert c.enable_summarization is False, 'summarization should be off'; "
+            "assert c.dictation_model == 'large-v3', f'model={c.dictation_model}'; "
+            "assert c.dictation_hotkey == 'alt_r'; "
+            "print('ok')",
+        ],
+        timeout=30,
+    )
+    check(
+        "Default config correct",
+        result.stdout.strip() == "ok",
+        result.stderr.strip() if result.returncode else "dictation-only, large-v3",
+    )
+
+    # Check model cache
     from quill.config import Config
-    cfg = Config()
-    ok(f"Config loaded — notes_dir={cfg.notes_dir}, whisper_model={cfg.whisper_model}")
 
-    whisper_cache = Path.home() / ".cache" / "whisper" / f"{cfg.whisper_model}.pt"
-    if whisper_cache.exists():
-        ok(f"openai-whisper model cached ({whisper_cache.stat().st_size // 1024 // 1024}MB)")
+    cfg = Config()
+    fw_cache = (
+        Path.home()
+        / ".cache"
+        / "huggingface"
+        / "hub"
+        / f"models--Systran--faster-whisper-{cfg.dictation_model}"
+    )
+    cached = fw_cache.exists()
+    if cached:
+        check("Dictation model cached", True, cfg.dictation_model)
     else:
-        print(f"  ⚠ openai-whisper model not cached — will download on first Record Note")
-
-    fw_cache = Path.home() / ".cache" / "huggingface" / "hub" / f"models--Systran--faster-whisper-{cfg.faster_whisper_model}"
-    if fw_cache.exists():
-        ok(f"faster-whisper model cached")
-    else:
-        print(f"  ⚠ faster-whisper model not cached — will download on first Live Transcribe")
-
-
-def check_record_note(record_seconds=3):
-    section(f"Record Note pipeline (recording {record_seconds}s of real mic audio)")
-
-    from quill.config import Config
-    from quill.recorder import Recorder
-    from quill.transcriber import Transcriber
-    from quill.summarizer import Summarizer, SummarizerError
-    from quill.note_writer import NoteWriter
-
-    cfg = Config()
-
-    print(f"  Recording {record_seconds}s...")
-    recorder = Recorder()
-    recorder.start()
-    time.sleep(record_seconds)
-    tmp = Path(tempfile.mktemp(suffix=".wav"))
-    duration = recorder.stop(output_path=tmp)
-    ok(f"Recorded {duration:.1f}s — {tmp.stat().st_size} bytes")
-
-    print("  Transcribing...")
-    t0 = time.time()
-    transcriber = Transcriber(model_name=cfg.whisper_model)
-    transcript = transcriber.transcribe(tmp)
-    ok(f"Transcribed in {time.time()-t0:.1f}s — '{transcript or '(silence)'}'" )
-
-    print("  Summarizing...")
-    summarizer = Summarizer(ollama_url=cfg.ollama_url, model=cfg.ollama_model, timeout=15)
-    try:
-        summary = summarizer.summarize(transcript or "silence")
-        ok(f"Ollama summary: '{summary[:60]}...'")
-    except SummarizerError as e:
-        summary = None
-        print(f"  ⚠ Ollama offline ({e}) — saving raw transcript")
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        writer = NoteWriter(notes_dir=Path(tmpdir))
-        path = writer.write(
-            transcript=transcript or "(no speech detected)",
-            summary=summary,
-            duration_seconds=duration,
-            model=cfg.whisper_model,
-            recorded_at=datetime.now(),
+        print(
+            f"  {WARN} Model '{cfg.dictation_model}' not cached — "
+            "will download on first dictation use"
         )
-        content = path.read_text()
-        assert "## Transcript" in content, "Missing ## Transcript"
-        assert "## Summary" in content, "Missing ## Summary"
-        assert path.name.endswith(".md"), "Wrong file extension"
-        ok(f"Note written: {path.name} ({len(content)} bytes)")
-        print(f"\n--- note preview ---\n{content[:400]}\n--------------------")
-
-    tmp.unlink(missing_ok=True)
 
 
-def check_live_transcribe_real(record_seconds=5):
-    section(f"Live Transcribe pipeline (real mic + real faster-whisper, {record_seconds}s)")
-
-    from quill.live_recorder import LiveRecorder
-    from quill.live_transcriber import LiveTranscriber
-    from quill.note_writer import NoteWriter
-    from quill.config import Config
-
-    cfg = Config()
-
-    print(f"  Recording {record_seconds}s of real mic audio...")
-    recorder = LiveRecorder(sample_rate=16000)
-    recorder.start()
-    time.sleep(record_seconds)
-    audio = recorder.stop()
-    ok(f"Captured {len(audio)} samples ({len(audio)/16000:.1f}s)")
-
-    print("  Loading faster-whisper model (downloads ~75MB on first run)...")
-    transcriber = LiveTranscriber(model_name=cfg.faster_whisper_model)
-    transcriber._load_model()
-    ok("Model loaded")
-
-    print("  Transcribing...")
-    t0 = time.time()
-    text = transcriber.transcribe_chunk(audio)
-    ok(f"Transcribed in {time.time()-t0:.1f}s — '{text or '(silence)'}'")
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        writer = NoteWriter(notes_dir=Path(tmpdir))
-        path = writer.write(
-            transcript=text or "(no speech detected)",
-            summary=None,
-            duration_seconds=record_seconds,
-            model=f"live/{cfg.faster_whisper_model}",
-            recorded_at=datetime.now(),
-        )
-        content = path.read_text()
-        assert "## Transcript" in content
-        assert f"live/{cfg.faster_whisper_model}" in content
-        ok(f"Note written: {path.name}")
-        print(f"\n--- note preview ---\n{content[:300]}\n--------------------")
+def check_tests():
+    print("\n=== Tests ===")
+    result = run([sys.executable, "-m", "pytest", "tests/", "-x", "-q"], timeout=120)
+    last = result.stdout.strip().split("\n")[-1] if result.stdout.strip() else ""
+    check("Test suite passes", "passed" in last and "failed" not in last, last)
 
 
-def check_live_transcribe():
-    section("Live Transcribe pipeline (mocked faster-whisper)")
-
-    from quill.live_recorder import LiveRecorder
-    from quill.live_transcriber import LiveTranscriber, LiveTranscriberThread
-    from quill.live_window import LiveWindow
-    from quill.config import Config
-    from quill.note_writer import NoteWriter
-
-    cfg = Config()
-
-    print("  Testing LiveRecorder...")
-    recorder = LiveRecorder(sample_rate=16000)
-    recorder.start()
-    assert recorder.is_recording
-    time.sleep(0.5)
-    audio = recorder.drain()
-    assert audio.dtype == np.float32
-    recorder.stop()
-    assert not recorder.is_recording
-    ok(f"LiveRecorder — captured {len(audio)} frames in 0.5s")
-
-    print("  Testing LiveTranscriberThread (mocked)...")
-    with patch("quill.live_transcriber.WhisperModel") as MockModel:
-        call_n = [0]
-        def fake_transcribe(audio, **kw):
-            call_n[0] += 1
-            seg = MagicMock(); seg.text = f" spoken word {call_n[0]}"
-            return [seg], MagicMock()
-        MockModel.return_value.transcribe.side_effect = fake_transcribe
-
-        collected = []
-        transcriber = LiveTranscriber(cfg.faster_whisper_model)
-        thread = LiveTranscriberThread(transcriber, chunk_seconds=1, sample_rate=16000, on_text=collected.append)
-        thread.start()
-        for _ in range(3):
-            thread.feed(np.zeros(16000, dtype=np.float32))
-        time.sleep(0.3)
-        thread.stop()
-        thread.join(timeout=3)
-
-    ok(f"LiveTranscriberThread — {len(collected)} chunks: {collected}")
-
-    print("  Testing LiveWindow...")
-    win = LiveWindow(on_close=lambda: None)
-    win.append("Hello world")
-    win.update()
-    text = win.get_text()
-    assert "Hello world" in text, f"Expected 'Hello world' in '{text}'"
-    win.destroy()
-    win.destroy()  # idempotent
-    ok(f"LiveWindow — text appended, destroyed cleanly")
-
-    print("  Testing full pipeline → note file...")
-    with tempfile.TemporaryDirectory() as tmpdir:
-        writer = NoteWriter(notes_dir=Path(tmpdir))
-        transcript = " ".join(collected)
-        path = writer.write(
-            transcript=transcript or "(no speech detected)",
-            summary=None,
-            duration_seconds=0,
-            model=f"live/{cfg.faster_whisper_model}",
-            recorded_at=datetime.now(),
-        )
-        content = path.read_text()
-        assert "## Transcript" in content
-        assert f"live/{cfg.faster_whisper_model}" in content
-        ok(f"Note written: {path.name}")
-        print(f"\n--- note preview ---\n{content[:300]}\n--------------------")
+def check_lint():
+    print("\n=== Lint ===")
+    result = run([sys.executable, "-m", "ruff", "check", "quill/", "tests/"])
+    check("Ruff lint clean", result.returncode == 0, result.stdout.strip() or "clean")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verify quill end-to-end")
-    parser.add_argument("--record", action="store_true", help="Record Note pipeline only")
-    parser.add_argument("--live", action="store_true", help="Live Transcribe pipeline only (mocked)")
-    parser.add_argument("--live-real", action="store_true", help="Live Transcribe with real mic + real faster-whisper")
-    parser.add_argument("--env", action="store_true", help="Environment checks only")
-    parser.add_argument("--seconds", type=int, default=3, help="Recording duration (default: 3)")
+    parser = argparse.ArgumentParser(description="Verify Quill app")
+    parser.add_argument("--all", action="store_true", help="Include tests + lint")
     args = parser.parse_args()
 
-    run_all = not (args.record or args.live or args.env or args.live_real)
+    print("Quill Verification")
 
-    try:
-        if run_all or args.env:
-            check_env()
-        if run_all or args.record:
-            check_record_note(record_seconds=args.seconds)
-        if run_all or args.live:
-            check_live_transcribe()
-        if args.live_real:
-            check_live_transcribe_real(record_seconds=args.seconds)
-        print("\n✓ All checks passed\n")
-    except SystemExit:
-        print("\n✗ Verification failed\n")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n✗ Unexpected error: {e}\n")
-        import traceback; traceback.print_exc()
-        sys.exit(1)
+    check_process()
+    check_menu_bar()
+    check_screenshot()
+    check_config()
+
+    if args.all:
+        check_tests()
+        check_lint()
+
+    passed = sum(1 for _, p in results if p)
+    total = len(results)
+    print(f"\n{'=' * 40}")
+    print(f"  {passed}/{total} checks passed")
+    if passed < total:
+        print(f"  {total - passed} FAILED:")
+        for name, p in results:
+            if not p:
+                print(f"    - {name}")
+    print(f"{'=' * 40}")
+    return 0 if passed == total else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

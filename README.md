@@ -1,91 +1,95 @@
-# quill
+# Quill
 
-macOS menu bar app for voice notetaking. Records locally, transcribes with [OpenAI Whisper](https://github.com/openai/whisper), summarizes with [Ollama](https://ollama.ai), saves to `~/Notes/` as markdown.
+macOS menu bar dictation app. Hold a hotkey, speak, and your words are typed into any app. Powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) running locally — no cloud, no API keys.
 
 ## Requirements
 
 - macOS 13+
-- Python 3.11 from Homebrew (required for tkinter/Live Transcribe)
+- Python 3.11 from Homebrew
 - [uv](https://github.com/astral-sh/uv): `pip install uv`
 - [ffmpeg](https://ffmpeg.org): `brew install ffmpeg`
-- [Ollama](https://ollama.ai) running locally with a model pulled (default: `gemma2:9b`)
 
 ## Install
 
 ```bash
-# Install Python 3.11 + tkinter via Homebrew (required for Live Transcribe window)
-brew install python@3.11 python-tk@3.11
-
-git clone https://github.com/YOUR_USERNAME/quill
-cd quill
+brew install python@3.11 ffmpeg
+git clone https://github.com/jagatsastry/whisper-notes
+cd whisper-notes
 uv venv --python /opt/homebrew/bin/python3.11
 uv sync
-uv pip install -e .
 ```
 
 ## Run
 
 ```bash
-quill
-# or
-python -m quill.app
+uv run quill
 ```
 
-The app appears in your macOS menu bar as 🎙 Quill.
+The app appears in your macOS menu bar as **🎙 Quill**. No Dock icon.
 
-## Usage
+## Usage — Dictation
 
 1. Click **🎙 Quill** in the menu bar
-2. Click **Start Recording** — the icon changes to ⏺ Recording...
-3. Speak your note
-4. Click **Stop Recording** — Whisper transcribes, Ollama summarizes
-5. A notification appears when the note is saved to `~/Notes/`
+2. Click **Enable Dictation** — the icon changes to 🎤
+3. Hold **Right Alt** (or your configured hotkey) and speak
+4. Release the key — your speech is transcribed and typed into the focused app
+5. Click **Disable Dictation** when done
 
-If Ollama is offline, the raw transcript is saved without a summary.
+The first use downloads the Whisper model (~3 GB for `large-v3`). Subsequent uses are instant.
 
-## Live Transcribe
+## Standalone App
 
-1. Click **Live Transcribe** — a floating window appears and the icon changes to 🔴 Live...
-2. Speak — transcribed text appears in the window every few seconds
-3. Click **Stop Live** — Ollama summarizes, note saved to `~/Notes/`
+Build a self-contained `.app` bundle (includes Python, models, ffmpeg):
 
-If you close the floating window, the session stops and the partial transcript is saved.
+```bash
+bash scripts/build-app.sh
+open dist/Quill.app
+```
 
 ## Configure
 
-Set environment variables before running:
+| Env var | Default | Description |
+|---|---|---|
+| `DICTATION_HOTKEY` | `alt_r` | Hotkey to hold for push-to-talk (pynput Key name or single char) |
+| `DICTATION_MAX_SECONDS` | `30` | Max recording duration per utterance (1–300) |
+| `DICTATION_MODEL` | *(falls back to `FASTER_WHISPER_MODEL`)* | Whisper model for dictation |
+| `FASTER_WHISPER_MODEL` | `large-v3` | faster-whisper model name |
+| `USE_SMALL_MODEL` | *(off)* | Set to `true` to use `base` model (faster, less accurate) |
+
+### Feature flags
+
+Transcription-to-notes and LLM summarization are available but disabled by default. Enable them with:
 
 | Env var | Default | Description |
 |---|---|---|
-| `WHISPER_MODEL` | `base` | Whisper model: tiny / base / small / medium / large |
-| `OLLAMA_MODEL` | `gemma2:9b` | Any model in `ollama list` |
+| `ENABLE_TRANSCRIPTION` | `false` | Show Start Recording + Live Transcribe in menu |
+| `ENABLE_SUMMARIZATION` | `false` | Summarize transcripts with Ollama after recording |
+
+When transcription is enabled, these additional settings apply:
+
+| Env var | Default | Description |
+|---|---|---|
+| `WHISPER_MODEL` | `large-v3` | OpenAI Whisper model for batch recording |
+| `OLLAMA_MODEL` | `gemma2:9b` | Ollama model for summarization |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_TIMEOUT` | `60` | Seconds before Ollama request times out |
-| `NOTES_DIR` | `~/Notes` | Where notes are saved |
-| `FASTER_WHISPER_MODEL` | `base` | faster-whisper model for Live Transcribe mode |
-| `LIVE_CHUNK_SECONDS` | `3` | Audio chunk duration for live transcription (seconds) |
+| `OLLAMA_TIMEOUT` | `60` | Ollama request timeout in seconds |
+| `NOTES_DIR` | `~/Notes` | Directory for saved note files |
+| `LIVE_CHUNK_SECONDS` | `3` | Audio chunk size for live transcription |
+
+## Verify
+
+```bash
+# With app running:
+uv run python scripts/verify.py
+
+# Full check (includes test suite + lint):
+uv run python scripts/verify.py --all
+```
 
 ## Test
 
 ```bash
 uv sync --group dev
-pytest -v
-```
-
-## Note format
-
-Each note saved as `~/Notes/YYYY-MM-DD-HH-MM.md`:
-
-```markdown
-# Note — 2026-03-04 14:32
-
-## Summary
-- Key point one
-- Key point two
-
-## Transcript
-Full raw transcript here...
-
----
-*Recorded: 2026-03-04 14:32:17 | Duration: 1m 23s | Model: base*
+uv run pytest -v
+uv run ruff check quill/ tests/
 ```

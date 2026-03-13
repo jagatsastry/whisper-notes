@@ -83,13 +83,14 @@ They cover scenarios that cannot be automated in CI.
 3. Verify: title returns to "Quill"
 4. Press and hold the Right Alt key
 5. Verify: nothing happens (no title change, no recording)
-6. Verify: "Start Recording" and "Live Transcribe" menu items are enabled again
 
-**Pass criteria:** After disabling, hotkey has no effect and other modes are re-enabled.
+**Pass criteria:** After disabling, hotkey has no effect.
 
 ---
 
 ## M6: Conflict with Record Note mode
+
+*Requires `ENABLE_TRANSCRIPTION=true` to show recording menu items.*
 
 **Steps:**
 1. From idle state, click "Start Recording" to begin a note recording
